@@ -3,6 +3,22 @@ import serial
 import time
 import sys
 
+# communication.py is a helper script for copy the binary program a.out to the mini computer
+# It relies on the wozmon Monitorprogram (see Ben Eaters Video on YouTube about the wozmon)
+
+# The script trys to execute commands for put data into memory and get data from memory:
+#  Getting Data with:
+#    0200.0300
+#  gets the data from memory 0200 to 0300
+#  Putting Data with:
+#    0200:01 02 03 04 05 06
+#  puts the byte 01,02,03,04,05,06 from the memory location 0200 into memory of the system
+#
+# Communication is slow an unsave. Communication errors sometimes stop the communication
+# you can simple type reset on the minicomputer, if the minicomputer resets to the wozmon
+# monitor, the transfer will continue.
+
+
 class storageitem:
 
     def __init__(self, address, data):
@@ -272,7 +288,15 @@ def grepcode(data, search):
 
 address = 0x0200
 
-towritedata = open("C:\\Users\\mf\\src\\asmtest\\a.out", "rb")
+# Microsoft Windows Version of Path on my Computer (insert your path here)
+if sys.platform == "win32":
+    towritedata = open("C:\\Users\\mf\\src\\asmtest\\a.out", "rb")
+# Apple Macintosh Version of Path on my Computer
+if sys.platform == "darwin":
+    towritedata = open("/Users/mf/github/ccpy65/asmtest/a.out", "rb")
+if sys.platform == "linux":
+    towritedata = open("/home/mf/github/ccpy65/asmtest/a.out", "rb")
+#
 newdata = towritedata.read()
 towritedata.close()
 length = grepcode(newdata, [0xFE, 0xED, 0xC0, 0xDE])
@@ -288,7 +312,14 @@ if not checkok:
     sys.exit(1)
 cmds = writedata.returncmds(address)
 try:
-    comm = SerialConn("COM4")
+    # this is the windows version of my serial connection 
+    if sys.platform == "win32":
+        comm = SerialConn("COM4")
+    # this is the apple macintosh version of my serial connection
+    if sys.platform == "darwin":
+        comm = SerialConn("/dev/cu.usbserial-14230")
+    if sys.platform == "linux":
+        omm = SerialConn("/dev/ttyS0")
 except:
     print("Problems to open the serial connection, is your terminal program running?")
     sys.exit(1)

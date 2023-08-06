@@ -7,7 +7,7 @@ CC	= gcc
 a.out:	test.s
 	$(ASM) $(ASMOPT) test.s
 
-test.s:	../ccpy65/test.s
+test.s:	../test.s
 	cp ../test.s .
 
 show:	a.out
@@ -18,3 +18,6 @@ clean:
 
 emu:
 	emu -f a.out -s 512
+
+transfer:
+	python3 ../communication.py
