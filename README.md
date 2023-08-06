@@ -1,4 +1,4 @@
-beginning checkin:
+#beginning checkin:
 
 ccpy65 is at the first place educational c-compiler for small 6502/65c02 Computers
 like the Breadboard Computer from Ben Eater. I startet the project for fun some
@@ -40,7 +40,7 @@ How To use the compiler:
 
 At the moment, the original IO-Mapping from Ben Eaters Breadborad Computer was usded.
 
-IMPORTEND NOTICE!<br />
+#IMPORTEND NOTICE!<br />
 The Serial IO, i am using, has to be modified. You must connect the PIN 16 of the ACIA (DCD)
 with Ground and the ACIA PIN 17 (DSR) with +5V. I am using interrupt driven IO for sending 
 and receiving serial Data and if the receive interrupts of the ACIA 6551 are enabled, both 
@@ -51,7 +51,7 @@ timer with usec accuracy for time measurement.<br />
 You need a propper configured IRQ layout on your breadboard computer for running the system.
 
 At the time of first checkin, i added a screenshot of the program "monitor.c" from today (August 6th).
-[Screenshot showing test of strtok function](docu/images/strtok_test.png)
+![Screenshot showing test of strtok function](docu/images/strtok_test.png)(Screenshot of running strtok test)
 
 
 Michael   Sunday 6th August 2023
