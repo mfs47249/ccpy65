@@ -40,14 +40,14 @@ How To use the compiler:
 
 At the moment, the original IO-Mapping from Ben Eaters Breadborad Computer was usded.
 
-IMPORTEND NOTICE!
+IMPORTEND NOTICE!<br />
 The Serial IO, i am using, has to be modified. You must connect the PIN 16 of the ACIA (DCD)
 with Ground and the ACIA PIN 17 (DSR) with +5V. I am using interrupt driven IO for sending 
 and receiving serial Data and if the receive interrupts of the ACIA 6551 are enabled, both 
-PINs generate a IRQ if floating. 
+PINs generate a IRQ if floating. <br />
 Btw. Because of the Bug in the Send Logic of the 6551 i am using Timer 2 of the VIA 6522 for
 the send timing of the serial interface. And Timer 1 is used for continues IRQ running a 
-timer with usec accuracy for time measurement.
+timer with usec accuracy for time measurement.<br />
 You need a propper configured IRQ layout on your breadboard computer for running the system.
 
 Michael   Sunday 6th August 2023
