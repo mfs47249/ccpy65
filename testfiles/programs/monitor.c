@@ -231,7 +231,7 @@ int main(int argc, char ADDRESSPTR) {
                 retval = 1;
             }
             if (inchar == 0x0D) {
-                println("cmd:", cmd_buf);
+                println("\ncmd:", cmd_buf);
                 state = analyse();
                 strcpy(cmd_buf, "");
             }
