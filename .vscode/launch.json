@@ -1,0 +1,27 @@
+{
+    // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
+    // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
+    // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["--debug2",
+                     "-o", "test.s",
+                     "-I", "testfiles",
+                     "-I", "testfiles/expressions",
+                     "-I", "testfiles/usefulfunctions",
+                     "-I", "testfiles/programs",
+                     "-s", "0x3800",
+                     "-g", "0x2800",
+                     "-p", "0x0200",
+                     "monitor.c"
+                    ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
