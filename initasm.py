@@ -574,8 +574,8 @@ class initasm:
         self.emit.createcode("STA", "outbuf_irqptr")
         self.emit.createcode("STA", "outbuf_writecounter")
         # set debug LED on PIA, set output on PIN PA0
-        self.emit.createcode("LDA", "#%00000001")
-        self.emit.createcode("STA", "VIADDRA")
+        #self.emit.createcode("LDA", "#%00000001")
+        #self.emit.createcode("STA", "VIADDRA")
         # return
         self.emit.createcode("RTS")
         # start timer with specific timeout
@@ -591,7 +591,6 @@ class initasm:
         self.emit.createcode("BIT", "VIAIFR", "check for general VIA interrupts",name="irq_handler_transmittimer")
         self.emit.createcode("BPL", "end_irq_handler_transmittimer", "branch, if bit 7 is 0, no irq from via")
         self.emit.createcode("PHA")
-        #self.emit.createcode("STA", "ACIADATA", "send char")
         self.emit.createcode("LDA", "VIAIFR")
         self.emit.createcode("AND", "#%00100000", "check for bit 5 if IFR")
         self.emit.createcode("BEQ", "end_irq_handler_restore_accu", "IRQ was not from Timer 2")
@@ -640,7 +639,7 @@ class initasm:
 
     def emit_ClockTimer(self):
         self.emit.createcode("LDA", "VIAACR", "Put Timer 1 into Freerun Mode", name="init_clocktimer")
-        self.emit.createcode("LDA", "#%01000000", "Put Timer into Freerun Mode, and disable all others")
+        self.emit.createcode("ORA", "#%01000000", "Put Timer into Freerun Mode, and disable all others")
         self.emit.createcode("STA", "VIAACR")
         self.emit.createcode("LDA", "#%11000000", "Enable Interrupts for Timer 1")
         self.emit.createcode("STA", "VIAIER")
