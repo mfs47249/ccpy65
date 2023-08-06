@@ -50,6 +50,28 @@ the send timing of the serial interface. And Timer 1 is used for continues IRQ r
 timer with usec accuracy for time measurement.<br />
 You need a propper configured IRQ layout on your breadboard computer for running the system.
 
+# Picture of the Breadboard computer
+This is, of course, another Ben Eater Breadboard Computer with the 65C02. I added some LED to
+have a little control over IRQ Status and Serial IO. 
+
+![](docu/images/Breadboard-Computer-Transfers-Program.png)(Picture of the Breadboard Computer with Status LED)
+
+The picture was taken during transmitting a program with the communication.py script. So we have all kinds of
+IO and a lot of IRQ, otherwise the LEDs are dark.
+
+# Picture of IRQ and Data during send data
+Because of the Bug in ACIA 6551 there was the need of a Timer 2 based send routine. For sending a char i 
+decided to start Timer 2 in one shot mode, signalling the end of time with IRQ. The 6551 was also unable 
+to handle IRQs in transmit mode because of the hardware bug.
+
+The following picture shows this timing with an oszilloscope. I added additonal wait time because i had problems
+reiceiving it error free. This may be is a problem with the receiver, but i don't know. With this adjustment
+error rate was minimized.
+
+![](docu/images/Breadboard-Computer-Transfer-TxD.png)(Picture of timing during send char routine)
+
+
+# first output of the actual "monitor.c" program, (will change in the future)
 At the time of first checkin, i added a screenshot of the program "monitor.c" from today (August 6th).
 ![](docu/images/strtok_test.png)(Screenshot of running strtok test)
 
