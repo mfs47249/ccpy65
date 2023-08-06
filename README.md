@@ -50,4 +50,8 @@ the send timing of the serial interface. And Timer 1 is used for continues IRQ r
 timer with usec accuracy for time measurement.<br />
 You need a propper configured IRQ layout on your breadboard computer for running the system.
 
+At the time of first checkin, i added a screenshot of the program "monitor.c" from today (August 6th).
+[Screenshot showing test of strtok function](relative%20path/docu/images/strtok_test.png?raw=true "Title")
+
+
 Michael   Sunday 6th August 2023
