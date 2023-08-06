@@ -51,7 +51,7 @@ timer with usec accuracy for time measurement.<br />
 You need a propper configured IRQ layout on your breadboard computer for running the system.
 
 At the time of first checkin, i added a screenshot of the program "monitor.c" from today (August 6th).
-[Screenshot showing test of strtok function](/docu/images/strtok_test.png?raw=true "Title")
+[Screenshot showing test of strtok function](docu/images/strtok_test.png)
 
 
 Michael   Sunday 6th August 2023
