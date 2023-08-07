@@ -18,6 +18,7 @@ How To use the compiler:
    repository inside vscodium
 3. adjust the file "launch.json" for the correct startaddress of your minicomputer, it is 0x200
    for execting in RAM and 0x8000 for burning the eeprom.<br />
+   <pre>
                "args": ["--debug2",<br />
                      "-o", "test.s",<br />
                      "-I", "testfiles",<br />
@@ -29,6 +30,7 @@ How To use the compiler:
                      "-p", "0x0200",    <--  program start address 0x200 or 0x8000<br />
                      "monitor.c"<br />
                     ],<br />
+                     </pre>
 4. Compile with Run/Debug from the Execute Tab
 5. If no errors are present, the outputfile will be written to the repository under the name
    test.s, it is a 6502 assembler file for the vasm assembler from Volker Barthelmann and 
