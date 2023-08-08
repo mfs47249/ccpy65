@@ -1,6 +1,6 @@
 
 ASM	= vasm6502_oldstyle
-ASMOPT	= -Fbin -c02 -dotdir -L test.lst
+ASMOPT	= -Fbin -wdc02 -dotdir -L test.lst
 
 CC	= gcc
 

@@ -400,7 +400,9 @@ class initasm:
             self.emit.insertinline("LDA", "$FFF1", 0)
         if self.aciaenabled:
             self.emit.createcode("LDA", "inbuf_readcounter", "load number of char in readbuffer")
-        self.emit.insertinline("RTS","",0)
+            self.emit.createcode("BNE", "_INPUT_CHARS_IN_BUFFER")
+            self.emit.createcode("WAI", "", "wait until next IRQ (mainly Timer 1 when no IO-activity")
+        self.emit.createcode("RTS", "", "return", name="_INPUT_CHARS_IN_BUFFER")
         #
         # wait for input and get char if present
         #
@@ -412,7 +414,7 @@ class initasm:
             self.emit.insertinline("BEQ", "_INPUT_WAIT", 0)
         if self.aciaenabled:
             self.emit.createcode("LDA", "inbuf_readcounter", "load number of chars in readbuffer", name="_INPUT_WAIT_FOR_CHARS")
-            self.emit.createcode("BEQ", "_INPUT_WAIT_FOR_CHARS", "if count is 0, then wait for input in buffer")
+            self.emit.createcode("BEQ", "_INPUT_GOSLEEP", "if count is 0, then wait for input in buffer")
             self.emit.createcode("SEI", "", "lock interrupts, as long as we modify the buffer")
             self.emit.createcode("LDX", "inbuf_readptr", "read pointer for read access")
             self.emit.createcode("LDY", "global_inbufacia,X", "load char from buffer into accu")
@@ -424,6 +426,10 @@ class initasm:
         self.emit.createcode("PLY")
         self.emit.createcode("PLX")
         self.emit.insertinline("RTS", "", 0)
+
+        # put processor to wait state
+        self.emit.createcode("WAI", "", "Put Processor in Waitstate, waiting for IRQ to continue processor activity", name="_INPUT_GOSLEEP")
+        self.emit.createcode("BRA", "_INPUT_WAIT_FOR_CHARS")
 
     def emit_OUTPUTCHAR(self):
         #
@@ -452,7 +458,7 @@ class initasm:
             self.emit.createcode("BPL", "outbuf_exitwithrestoreregisters")
             self.emit.createcode("LDA", "outbuf_writecounter", "load counter", name="output_buffer_full_empty_loop")
             self.emit.createcode("CMP", "#20", "check if buffer is empty")
-            self.emit.createcode("BPL", "output_buffer_full_empty_loop")
+            self.emit.createcode("BPL", "_OUTPUT_GOSLEEP")
             # restore registers
             self.emit.createcode("PLX", "", "restore X-Register", name="outbuf_exitwithrestoreregisters")
             self.emit.createcode("PLA", "", "restore Accu")
@@ -461,6 +467,9 @@ class initasm:
         if self.emulatorenabled:
             self.emit.insertinline("STA", "$FFF0", 0)
         self.emit.insertinline("RTS", "", 0)
+        # put processor in sleep mode
+        self.emit.createcode("WAI", "", "Put Processor in Waitstate, waiting for IRQ to continue processor activity", name="_OUTPUT_GOSLEEP")
+        self.emit.createcode("BRA", "output_buffer_full_empty_loop")
 
     def emit_OUTPUTCRLF(self):
         # output CR LF
@@ -547,10 +556,15 @@ class initasm:
         self.emit.createcode("PHX", "", "first save registers")
         self.emit.createcode("PHA")
         # insert char into buffer
+        self.emit.createcode("LDX", "#255")
         self.emit.createcode("LDA", "ACIASTATUS", "check bits", name="aciairqwaitforchar")
         self.emit.createcode("AND", "#%00001000", "check for receiver full")
-        self.emit.createcode("BEQ", "aciairqwaitforchar")
-        self.emit.createcode("INC", "inbuf_readcounter", "one char more in buffer")
+        #                                                   self.emit.createcode("BEQ", "aciairqwaitforchar")
+        self.emit.createcode("BNE", "acia_process_irq_char", "irq was from acia read, char is ready to read")
+        self.emit.createcode("DEX", "", "decrement timeout counter, char not ready in acia")
+        self.emit.createcode("BEQ", "inbuf_exitaciairqhandler", "we checked 255 times, with no char ready, something was wrong")
+        self.emit.createcode("BRA", "aciairqwaitforchar", "no char in acia, jump to check again")
+        self.emit.createcode("INC", "inbuf_readcounter", "one char more in buffer", name="acia_process_irq_char")
         self.emit.createcode("LDA", "ACIADATA", "get char")
         self.emit.createcode("LDX", "inbuf_irqptr")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
