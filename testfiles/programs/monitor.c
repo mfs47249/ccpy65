@@ -1,199 +1,152 @@
+#include <isnumber.c>
+#include <upchar.c>
+#include <simplestrtok.c>
 
+#include <findinstrings.c>
 
-char cmd_buf[256];
-char search_buf[64];
+int convert_to_bin_err;
+int convert_to_bin(ADDRESSPTR ptr) {
+    ADDRESSPTR p;
+    byte index, flag, ch;
+    int result;
 
-byte isletter(char ch) {
-    // check for Upper ASCII Letter A-Z
-    if (ch > 63) { // check for ascii > '@'
-        if (ch < 91) { // check for ascii < '[' 
-            return 1;
-        }
-    }
-    // check for lower ASCII Letter a-z
-    if (ch > 60) { // check for ascii > '`'
-        if (ch < 123) { // check for ascii < '{' 
-            return 1;
-        }
-    }
-    return 0;
-}
-
-byte isnumber(char ch) {
-    // check for 0-9
-    if (ch > 47) { // check for ascii > '/'
-        if (ch < 58) { // check for ascii < ':' 
-            return 1;
-        }
-    }
-    return 0;
-}
-
-char upchar(char ch) {
-    byte isletter;
-
-    isletter = isletter(ch);
-    if (isletter) {
-        return (ch + 32);
-    }
-    return ch;
-}
-
-byte ishex(char ch) {
-    // check for 0-9 and A-F
-    char c;
-    byte isnumber;
-
-    isnumber = isnumber(ch);
-    if (isnumber) {
-        return 1;
-    }
-    c = upchar(ch);
-    if (c > 63) { // check for ascii > '@'
-        if (c < 71) { // check for ascii < 'G' 
-            return 1;
-        }
-    }
-    return 0;
-}
-
-int findincmd() {
-    ADDRESSPTR cmdptr, searchptr, p1, p2;
-    int cmdlen, searchlen, searchidx, cmdidx, pos, zero;
-    byte found, search, endwhile;
-    char ch1,ch2;
-
-    cmdptr = adr(cmd_buf);
-    cmdlen = strlen(cmd_buf);
-    searchptr = adr(search_buf);
-    searchlen = strlen(search_buf);
-    found = 0;           // not found
-    search = 1;          // do search
-    cmdidx = 0;
-    while (found == 0) { // do until not found
-        searchptr = adr(search_buf);
-        found = 1;       // assume we will found the item
-        search = 1;
-        searchidx = 0;
-        endwhile = 1;
-        pos = cmdidx;
-        while (endwhile) {
-            p1 = cmdptr + searchidx;
-            p2 = searchptr + searchidx;
-            ch1 = peek(p1);
-            ch2 = peek(p2);
-            if (ch1 != ch2) {
-                search = 0;
-                endwhile = 0;
-                found = 0;
-            }
-            searchidx = searchidx + 1;
-            if (searchidx >= searchlen) {
-                return pos;
+    convert_to_bin_err = 0;
+    p = ptr;
+    index = 0;
+    result = 0;
+    ch = peek(p);
+    while (ch != 0) {
+        ch = upchar(ch);
+        if (ch > 64) {
+            if (ch < 71) {
+                ch = ch - 55;
             }
         }
-        cmdptr = cmdptr + 1;
-        cmdidx = cmdidx + 1;
-        if (cmdidx > cmdlen) {
-            found = 1;
+        if (ch > 47) {
+            if (ch < 58) {
+                ch = ch - 48;
+            }
         }
-        if (search) {
-            found = 1;
+        if (ch > 15) {
+            convert_to_bin_err = 1;
+            return 0;
+        }
+        result = result + ch;
+        p = p + 1;
+        index = index + 1;
+        ch = peek(p);
+        if (ch != 0) {
+            shiftleft(result,4);
         }
     }
-    zero = 0;
-    pos = zero - 1;
-    return pos;
+    return result;
 }
 
-ADDRESSPTR strtok_nextstring;
-int strtok_laststringcount;
-ADDRESSPTR strtok(ADDRESSPTR string_adr) {
-    ADDRESSPTR startptr, stringptr, delimfound;
-    byte done;
-    int sizeofstring, stringindex, zero;
-    char searchfor, delim;
+void dumpfromto(int start, int end) {
+    int startaddress, endaddress;
 
-    done = 0;
-    delim = 0x20;
-    stringindex = 0;
-    startptr = string_adr;
-    stringptr = string_adr;
-    if (stringptr == 0) {
-        stringptr = strtok_nextstring;
-        startptr = strtok_nextstring;
-    }
-    sizeofstring = strlen(stringptr);
-    if (stringptr) {
-        strtok_laststringcount = sizeofstring;
-    }
-    if (strtok_laststringcount =< 0) {
-        // println("end of string");
-        stringptr = 0;
-        return stringptr;
-    }
-    delimfound = 0;
-    // println("adr(string_adr):", string_adr);
-    while (done == 0) {
-        searchfor = peek(stringptr);
-        // println("sf:", searchfor);
-        if (searchfor == delim) {
-            delimfound = stringptr;
-            done = 1;
-        }
-        if (searchfor == 0) {
-            delimfound = stringptr;
-            done = 1;
-        }
-        if (delimfound == 0) {
-            stringptr = stringptr + 1;
-            stringindex = stringindex + 1;
-        }
-        strtok_laststringcount = strtok_laststringcount - 1;
-        /* zero = strtok_laststringcount;
-        println("ch:", searchfor, " size:", sizeofstring, " adr:", stringptr, " lastcnt:", zero); */
-    }
-    if (delimfound) {
-        // println("delim found at:", stringptr);
-        zero = 0;
-        poke(stringptr, zero);
-        strtok_nextstring = stringptr;
-        if (strtok_laststringcount > 0) {
-            // println("increment laststringcount");
-            strtok_nextstring = stringptr + 1;
-        }
-        return startptr;
-    }
-    return 0;
+    startaddress = start;
+    endaddress = end;
+    println("\ndump from:", startaddress, " to:", endaddress);
 }
 
+int dump_memory(ADDRESSPTR cmd_line) {
+    ADDRESSPTR p;
+    int result, startaddress, endaddress;
+    byte conversionerror;
+    // char temp[40];
+
+    conversionerror = 0;
+    p = cmd_line;
+    p = strtok(p); // skip over "dump" command
+    p = strtok(0); // get first argument
+    // strcpy(temp, p); 
+    startaddress = convert_to_bin(p);
+    // println("dump p:", temp, "startaddress:", startaddress);
+    if (convert_to_bin_err != 0) {
+        conversionerror = conversionerror + 1;
+    }
+    p = strtok(0);  // get second argument
+    // strcpy(temp, p);
+    // println("dump p:", temp, "endaddress:", endaddress);
+    endaddress = convert_to_bin(p);
+    if (convert_to_bin_err != 0) {
+        conversionerror = conversionerror + 1;
+    }
+    if (conversionerror == 0) {
+        // println("dump memory from:", startaddress, " to:", endaddress);
+        dumpfromto(startaddress, endaddress);
+        return 0;
+    }
+    println("error converting dump addresses, try again")
+    return 1;
+}
+
+ADDRESSPTR jumpaddress;
+int run_program(ADDRESSPTR cmd_line) {
+    ADDRESSPTR p;
+    int runaddress;
+    byte conversionerror;
+
+    conversionerror = 0;
+    p = cmd_line;
+    p = strtok(p); // skip over "run" command
+    p = strtok(0); // get first argument
+    runaddress = convert_to_bin(p);
+    if (convert_to_bin_err == 0) {
+        println("\nrun address is:", runaddress);
+        jumpaddress = runaddress;
+        _JMP (global_jumpaddress);
+        return 0;
+    }
+    println("error converting start address of program, try again");
+    return 1;
+}
 
 int analyse() {
-    ADDRESSPTR chptr, tok;
+    ADDRESSPTR p, chptr, tok;
     char ch, space;
     byte do_analyse, ishex;
     int result;
     char checkbuf[20];
 
-    space = 0x20;
-    chptr = adr(cmd_buf);
-    do_analyse = 1;
-    ishex = 0;
     strcpy(search_buf, "run");
     result = findincmd();
-    println("result:", result);
-
-    tok = strtok(chptr);
-    while (tok != 0) {
-        strcpy(checkbuf, tok);
-        println("tok:", tok, " checkbuf:", checkbuf);
-        tok = strtok(0);
+    if (result >= 0) {
+        p = adr(cmd_buf);
+        run_program(p);
+    }
+    strcpy(search_buf, "dump");
+    result = findincmd();
+    if (result >= 0) {
+        p = adr(cmd_buf);
+        dump_memory(p);
+    }
+    strcpy(search_buf, "exit");
+    result = findincmd();
+    if (result >= 0) {
+        println("\nexit monitor...\n");
+        return 1;
     }
 
-
-
     return 0;
-/*  print("enter while loop");
+    /*
+    p = adr(cmd_buf);
+    tok = strtok(p);
+    while (tok != 0) {
+        strcpy(checkbuf, tok);
+        // println("tok:", tok, " checkbuf:", checkbuf);
+        result = convert_to_bin(tok);
+        if (convert_to_bin_err != 0) {
+            println("Error converting HEX Value");
+        }
+        do_analyse = result;
+        printlnhex("result:", result, " do_analyse:", do_analyse);
+        tok = strtok(0);  // get next token
+
+    }
+    return 0;
+    print("enter while loop");
     while (do_analyse) {
         ch = peek(chptr);
         println("debug, ch:", ch, " chptr:", chptr);
@@ -217,11 +170,13 @@ int analyse() {
 int main(int argc, char ADDRESSPTR) {
     int retval, state;
     int chars_to_read;
-    char inchar;
+    byte idx;
+    char inchar, ch;
     ADDRESSPTR funcptr;
 
     state = 0;
     retval = 0;
+    println("\nSTART mon...:");
     strcpy(cmd_buf, "");
     while (retval == 0) {
         chars_to_read = avail();
@@ -231,9 +186,10 @@ int main(int argc, char ADDRESSPTR) {
                 retval = 1;
             }
             if (inchar == 0x0D) {
-                println("\ncmd:", cmd_buf);
-                state = analyse();
+                // print("do:", cmd_buf);
+                retval = analyse();
                 strcpy(cmd_buf, "");
+
             }
             if (inchar != 0xD) {
                 strcat(cmd_buf, inchar);
