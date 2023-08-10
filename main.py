@@ -501,7 +501,7 @@ class initsystem:
         ap.add_argument("-f", "--file", help="use file for input")
         ap.add_argument("-o", "--outfile", help="namepath for output file")
         ap.add_argument("-I", "--include", action="append", help="include path")
-        ap.add_argument("-s", "--varstart", help="set startaddress of varmemory (decimal), above memory is reserved for global var,\n below ist reserved for stack until heapstart")
+        ap.add_argument("-s", "--varstart", help="set startaddress of varmemory (decimal), above memory is reserved for global var,\n below is reserved for stack until heapstart")
         ap.add_argument("-g", "--heapstart", help="set startaddress of heap (decimal), heap will be reserved\n below until codesegment ist reached")
         ap.add_argument("-p", "--progstart", help="set start of program")
         ap.add_argument("files", type=str, nargs="+", help="list of files")
