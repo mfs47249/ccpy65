@@ -18,6 +18,32 @@ import sys
 # you can simple type reset on the minicomputer, if the minicomputer resets to the wozmon
 # monitor, the transfer will continue.
 
+    
+
+def grepcode(data, search):
+    searchlist = list()
+    datalist = list()
+    print("len(data):%d" % len(data))
+    for d in data:
+        datalist.append(int(d))
+    for s in search:
+        searchlist.append(s)
+    dindex = 0
+    while (dindex < (len(datalist) + len(search))):
+        sindex = 0
+        found = True
+        for s in searchlist:
+            if (searchlist[sindex] != datalist[dindex+sindex]):
+                found = False
+                break
+            else:
+                sindex += 1
+        if found:
+            return dindex
+        dindex += 1
+    return -1
+
+
 
 class storageitem:
 
@@ -148,7 +174,7 @@ class SerialConn:
     serconn = None
 
     def __init__(self, device):
-        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='N', timeout=1, xonxoff=0, rtscts=0)
+        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='N', timeout=10, xonxoff=0, rtscts=0)
         self.isopen = self.serconn.is_open
 
     def close(self):
@@ -158,10 +184,12 @@ class SerialConn:
         tosystem = sendline + "\r"
         self.serconn.write(tosystem.encode())
         self.serconn.flush()
+        # time.sleep(0.05)
 
     def readdata(self, termstring):
         dlines = list()
         linecount = 0
+        receiveddata = "no data"
         try:
             r = self.serconn.readline()
             receiveddata = r.decode("ascii").strip()
@@ -174,6 +202,8 @@ class SerialConn:
                 r = self.serconn.readline()
                 receiveddata = r.decode("ascii").strip()
                 # print("Termstring:%s Received:%s Len():%d" % (str(termstring), str(receiveddata), len(receiveddata)))
+                if len(receiveddata) == 0:
+                    self.writedata("wozmon")
             except UnicodeDecodeError as e:
                 print("\nerror at decode at line: %s" % r)
                 return list()
@@ -187,7 +217,7 @@ class SerialConn:
         for l in result:
             print(l)
 
-    def putcommand(self, cmd):
+    def putcommand(self, length, cmd):
         cmd = cmd.strip()
         # print("commnd:%s" % cmd)
         termstring = cmd[0:5]
@@ -208,12 +238,12 @@ class SerialConn:
             if len(result) < 2:
                 isok = False
             else:
-                # print("%s,%s" % (cmd, found))
                 if cmd == found:
                     isok = True
                 else:
+                    print("cmd differs:%s,%s" % (cmd, found))
                     isok = False
-        print(found)
+        print("%04x,%s" % (length, found))
 
     def emptybuffer(self):
         result = "***"
@@ -237,60 +267,58 @@ class SerialConn:
         self.writedata(command)
         return self.readdata(termstring)
 
-    def garbage(self):
+    def putdata(self, start, length, data):
+        datavalues = list()
+        packetlength = 32
+        for d in data:
+            datavalues.append(int(d))
+        print("starting transfer of data with length:%04x" % length)
+        pointer = start
+        while pointer < length:
+            packetdata = ""
+            checksum = 0
+            for d in range(packetlength):
+                item = datavalues[pointer+d]
+                packetdata += "%02X " % item
+                checksum += item
+            packetdata = packetdata[:-1]
+            checksum = checksum & 0xFFFF
+            sendpacket = "*%02X %04X %s %04X." % (packetlength, pointer, packetdata, checksum)
+            sendfailed = True
+            while sendfailed:
+                self.writedata(sendpacket)
+                status = self.getstatus()
+                if status.find("OK") > 0:
+                    print("Status of %04X OK, Message is:%s" % (pointer, status))
+                    sendfailed = False
+                else:
+                    print("Status of %04X NOT OK, Messages is:%s" % (pointer, status))
+                    sendfailed = True
+            pointer = pointer + packetlength
+
+    def getstatus(self):
+        error = 0
+        receiveddata = "no data"
         try:
-            ser.write(b'\n\r')
-            ser.write(b'8000.A000\n\r')
-            ser.flush()
-            s = "none"
-            while True:
-                try:
-                    s = ser.readline()
-                except OSError as e:
-                    print("----------------- OSError ----------------------")
-                    print(e)
-                print(s)
-                if len(s) < 2:
-                    ser.write(b"8000.A000\n\r")
-                    ser.flush()
-        except KeyboardInterrupt:
-            ser.close()
-            print("Keyboard Interrupt, closeing serial connection")
+            r = self.serconn.readline()
+            receiveddata = r.decode("ascii").strip()
+        except:
+            error = 1
+        return receiveddata
 
-        print(ser.is_open)
-        ser.close()
+        
+
+address = 0x0200 # address to upload to
 
 
-def grepcode(data, search):
-    searchlist = list()
-    datalist = list()
-    print("len(data):%d" % len(data))
-    for d in data:
-        datalist.append(int(d))
-    for s in search:
-        searchlist.append(s)
-    dindex = 0
-    while (dindex < (len(datalist) + len(search))):
-        sindex = 0
-        found = True
-        for s in searchlist:
-            if (searchlist[sindex] != datalist[dindex+sindex]):
-                found = False
-                break
-            else:
-                sindex += 1
-        if found:
-            return dindex
-        dindex += 1
-    return -1
-
-
-
-address = 0x0200
-
+print("sys.platform is:%s" % sys.platform)
 # Microsoft Windows Version of Path on my Computer (insert your path here)
 if sys.platform == "win32":
-    towritedata = open("C:\\Users\\mf\\src\\asmtest\\a.out", "rb")
+    print("open data for win32 platform")
+    towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
+if sys.platform == "cygwin":
+    print("open data for win32 platform with cygwin")
+    towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
 # Apple Macintosh Version of Path on my Computer
 if sys.platform == "darwin":
     towritedata = open("/Users/mf/github/ccpy65/asmtest/a.out", "rb")
@@ -319,40 +347,17 @@ try:
     if sys.platform == "darwin":
         comm = SerialConn("/dev/cu.usbserial-14230")
     if sys.platform == "linux":
-        omm = SerialConn("/dev/ttyS0")
+        comm = SerialConn("/dev/ttyS0")
+    if sys.platform == "cygwin":
+        comm = SerialConn("/dev/ttyS3")
 except:
     print("Problems to open the serial connection, is your terminal program running?")
     sys.exit(1)
-for c in cmds:
-    comm.putcommand(c)
-    #time.sleep(0.1)
+wozmon_communication = False
+if wozmon_communication:
+    for c in cmds:
+        comm.putcommand(address + length, c)
+else:
+    comm.putdata(address, length, newdata)
 comm.close()
-
-sys.exit(0)
-stor = datastore()
-# comm.commoperation()
-address = 0x8000
-lastaddress = 0x8790
-dist = 32
-while address < lastaddress:
-    endaddr = str("%04X" % (address + dist - 8)) + ':'
-    print("(%04X,%04X);" % (address, address + dist),flush=True,end="")
-    fromhost = comm.getmemorylinesat(address, dist - 1, endaddr)
-    if len(fromhost) == 0:
-        print("\nError during communication, at address:%04X" % address)
-        # empty buffer until timeout
-        comm.emptybuffer()
-    else:
-        checkok = stor.getmemdump(fromhost)
-        if checkok:
-            checkok = stor.checkdata(address, address + dist)
-            if checkok:
-                address += dist
-print()
-checkok = stor.checkdata(address, lastaddress)
-if not checkok:
-    print("check is not ok, data is invalid")
-    sys.exit(1)
-stor.listdata()
-
 print("done")
