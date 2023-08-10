@@ -22,7 +22,7 @@
                      "-s", "0x3800",
                      "-g", "0x2800",
                      "-p", "0x0200",
-                     "monitor.c"
+                     "serialtest.c"
                     ],
             "console": "integratedTerminal",
             "justMyCode": true
