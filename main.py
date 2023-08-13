@@ -313,6 +313,14 @@ class filedata:
             print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
         return
 
+    def processpercentchar(self):
+        self.lasttoken = "percent"
+        tokens.addtoken(self.lasttoken, self.lasttoken, self.linenumber)
+        if self.debugscanner:
+            print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
+        return
+
+
     def processdollarsign(self):
         self.lasttoken = "dollarsign"
         tokens.addtoken(self.lasttoken, self.lasttoken, self.linenumber)
@@ -450,6 +458,8 @@ class filedata:
                 self.processstartchar()
             elif self.ch == "/":
                 self.processslashchar()
+            elif self.ch == "%":
+                self.processpercentchar()
             else:
                 print("character not tokenize, last ch read was:%s" % (self.ch))
             if self.lasttoken == "doincludefile":

@@ -656,10 +656,13 @@ class dotoken:
             self.nexttoken()
 
     def do_mnemonic(self):
+        lastargument = ""
         mnemonic = self.t_value
         opcode = mnemonic[1:]
         arguments = ""
         self.nexttoken()
+        if self.t_value == "A":
+            xxxx = 0
         while self.t_type != "semicolon":
             if self.t_value == "comma":
                 arguments += ','
@@ -671,8 +674,21 @@ class dotoken:
                 arguments += ')'
             elif self.t_value == "dollarsign":
                 arguments += '$'
+            elif self.t_value == "percent":
+                arguments += '%'
+            elif self.t_type == "plussign":
+                arguments += '+'
+            elif self.t_type == "minussign":
+                arguments += '-'
+            elif self.t_type == "alpha":
+                # bad coding, this will filter out special case were we want a character constant to the assembler
+                if lastargument == "hash" and len(self.t_value) == 1:
+                    arguments += "'%s'" % self.t_value
+                else:
+                    arguments += self.t_value
             else:
                 arguments += self.t_value
+            lastargument = self.t_value;
             self.nexttoken()
         self.log.writelog("do_mnemonic", "opcode: %s args:%s" % (opcode, arguments))
         self.code.insertinline(opcode, arguments, self.t_linenumber)

@@ -599,6 +599,8 @@ class expressions:
             x = 0
         namespace = foundtoken.getnamespace()
         useopsize = foundtoken.getsize()
+        # the following statement checks if only a single var is assigned, then it uses the copyvar function to create code for assigning
+        # this works only if the token is a var, not a function.
         if False and len(self.tokenlist) == 1:
             x = self.tokenlist[0]
             self.code.copyvar(foundtoken, x, lineno=self.linenumber)

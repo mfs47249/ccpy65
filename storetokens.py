@@ -225,6 +225,13 @@ class storetokens:
         self.addmne("_TXA")
         self.addmne("_TXS")
         self.addmne("_TYA")
+        # additonal 65c02 opcodes
+        self.addmne("_STZ")   # store zero
+        self.addmne("_PHX")   # push X
+        self.addmne("_PHY")   # push Y
+        self.addmne("_PLX")   # pop X
+        self.addmne("_PLY")   # pop Y
+        self.addmne("_BRA")   # unconditional branch
 
     def setnamespace(self, namespace):
         self.namespace = namespace

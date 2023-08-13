@@ -3933,7 +3933,7 @@ class codeemitter:
                 self.createcode("STA", "%s_0" % destvarname, "usally in _unireg0") 
         elif functionname == "poke":
             if sourcetype == "int" or sourcetype == "long" or sourcetype == "longlong" or sourcetype == "ADDRESSPTR":
-                if sourcetype_2 == "byte" or sourcetype_2 == "int":
+                if sourcetype_2 == "byte" or sourcetype_2 == "int" or sourcetype_2 == "char":
                     # get address, where to put the second parameter
                     self.createcode("LDY", "#%s" % sourcevarname, "poke, get Value of %s" % sourcevarname)
                     self.createcode("LDA", "(%s),Y" % frame0)
