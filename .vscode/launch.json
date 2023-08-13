@@ -20,9 +20,9 @@
                      "-I", "libfuncs/numberconvert",
                      "-I", "libfuncs/misc",
                      "-s", "0x3800",
-                     "-g", "0x2800",
+                     "-g", "0x3000",
                      "-p", "0x0200",
-                     "serialtest.c"
+                     "dumptest.c"
                     ],
             "console": "integratedTerminal",
             "justMyCode": true

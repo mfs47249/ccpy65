@@ -1,5 +1,5 @@
 
-// #include <factorial.c>
+#include <factorial.c>
 // #include <itoa.c>
 
 longlong getmicroseconds(longlong interval) {
@@ -32,10 +32,10 @@ int main(int argc, ADDRESSPTR argv)  {
     while (counter < 10) {
         counter = counter + 1;
         time = getmicroseconds(newvalue);
-        time_in_sec = time / 100000;
+        time_in_sec = time / 1000000;
         println("count:", counter, " time in usec:", time, " sec:", time_in_sec);
     }
-/*
+
     counter = 1;
     while (counter < 5) {
         time = gettimer();
@@ -43,7 +43,7 @@ int main(int argc, ADDRESSPTR argv)  {
         counter = counter + 1;
         // wait();
     }
-    */
-    //factorialtest();
+    
+    factorialtest();
     return time;
 }

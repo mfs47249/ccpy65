@@ -34,172 +34,170 @@ void dumpfromto(int start, int end) {
 int dump_memory(ADDRESSPTR cmd_line) {
     ADDRESSPTR p;
     int result, startaddress, endaddress;
-    byte conversionerror;
+    byte converr;
     // char temp[40];
 
-    conversionerror = 0;
     p = cmd_line;
     p = strtok(p); // skip over "dump" command
-    p = strtok(0); // get first argument
+    p = strtok(0); // get first argument, startaddress
     // strcpy(temp, p); 
-    startaddress = convert_to_bin(p);
+    converr = hex_to_bin_check(p);
+    println("converr:" converr);
+    if (converr) {
+        println("error converting start address");
+        return 1;
+    }
+    startaddress = hex_to_bin(p);
     // println("dump p:", temp, "startaddress:", startaddress);
-    if (convert_to_bin_err != 0) {
-        conversionerror = conversionerror + 1;
+    p = strtok(0);  // get second argument, endaddress
+    converr = hex_to_bin_check(p);
+    if (converr) {
+        println("error converting end address");
+        return 1;
     }
-    p = strtok(0);  // get second argument
-    // strcpy(temp, p);
-    // println("dump p:", temp, "endaddress:", endaddress);
-    endaddress = convert_to_bin(p);
-    if (convert_to_bin_err != 0) {
-        conversionerror = conversionerror + 1;
-    }
-    if (conversionerror == 0) {
-        // println("dump memory from:", startaddress, " to:", endaddress);
-        dumpfromto(startaddress, endaddress);
-        return 0;
-    }
-    println("error converting dump addresses, try again")
-    return 1;
+    endaddress = hex_to_bin(p);
+    // println("dump memory from:", startaddress, " to:", endaddress);
+    dumpfromto(startaddress, endaddress);
 }
 
 ADDRESSPTR jumpaddress;
 int run_program(ADDRESSPTR cmd_line) {
     ADDRESSPTR p;
     int runaddress;
-    byte conversionerror;
+    byte converr;
 
-    conversionerror = 0;
     p = cmd_line;
     p = strtok(p); // skip over "run" command
     p = strtok(0); // get first argument
-    runaddress = convert_to_bin(p);
-    if (convert_to_bin_err == 0) {
-        println("\nrun address is:", runaddress);
-        jumpaddress = runaddress;
-        _JMP (global_jumpaddress);
-        return 0;
+
+    converr = hex_to_bin_check(p);
+    if (converr) {
+        println("error converting program start address");
+        return 1;
     }
-    println("error converting start address of program, try again");
-    return 1;
+    runaddress = hex_to_bin(p);
+    println("\nrun address is:", runaddress);
+    jumpaddress = runaddress;
+    _JMP (global_jumpaddress);
+    return 0;
 }
 
 void process_buffer() {
     ADDRESSPTR p, datalength, dataaddress, dataitem, checkptr, address;
-    int length, checksum, index, calcchecksum, errors;
-    byte databyte;
+    int length, checksum, index, calcchecksum, headerchecksum, errors;
+    byte databyte, converr;
 
     errors = 0;
-    calcchecksum = 0;
     p = adr(cmd_buf);
     datalength = strtok(p); // get length of data from packet
-    length = convert_to_bin(datalength);
-    if (convert_to_bin_err != 0) {
-        errors = errors + 64;
-        println("lenerr");
-    }
+    length = hex_to_bin(datalength);
+    calcchecksum = length;
     dataaddress = strtok(0); // get address of data to put
-    address = convert_to_bin(dataaddress);
-    if (convert_to_bin_err != 0) {
-        errors = errors + 128;
-        println("adrerr");
+    address = hex_to_bin(dataaddress);
+    calcchecksum = calcchecksum + address;
+    dataaddress = strtok(0); // get checksum of length + address
+    headerchecksum = hex_to_bin(dataaddress);
+    if (calcchecksum != headerchecksum) {
+        errors = 1;
     }
     if (errors == 0) {
+        calcchecksum = 0;
         index = 0;
         while (index < length) {
             dataitem = strtok(0);
-            databyte = convert_to_bin(dataitem);
-            if (convert_to_bin_err != 0) {
-                errors = errors + 1;
-                index = length; // end while loop
-            }
-            if (convert_to_bin_err == 0) {
-                poke(address, databyte);
-                calcchecksum = calcchecksum + databyte;
-                // print(databyte);
-            }
+            databyte = hex_to_bin(dataitem);
+            poke(address, databyte);
+            calcchecksum = calcchecksum + databyte;
             address = address + 1;
             index = index + 1;
         }
         checkptr = strtok(0);
-        checksum = convert_to_bin(checkptr);
-        if (convert_to_bin_err != 0) {
-            errors = errors + 256;
-        }
+        checksum = hex_to_bin(checkptr);
         if (checksum != calcchecksum) {
-            errors = errors + 512;
+            errors = errors + 2;
         }
     }
     if (errors > 0) {
-        println("errorcode:", errors);
+        println("calccheck:", calcchecksum, ",err:", errors);
         return;
     }
     println("OK,next:", address);
     //println("len:", length, " adr:", address, " sum:", checksum, " calcsum:", calcchecksum, " errors:", errors);
 }
 
-void puttomem() {
-    int startaddress, endaddress;
-    byte endofdata, chars_to_read;
+void puttmem() {
+    int startaddress, endaddress, timeout;
+    byte chars_to_read;
     char inchar;
     // sendpacket = "%02X %04X %s %02X"  length,address,data,checksum
 
-    endofdata = 0;
+    timeout = 0;
     strcpy(cmd_buf, "");
-    while (endofdata == 0) {
+    while (timeout < 5000) {
         chars_to_read = avail();
+        timeout = timeout + 1;  
         if (chars_to_read > 0) {
             inchar = getch();
             if (inchar == 0x2E) { // "." is end of data packet
                 process_buffer();
-                strcpy(cmd_buf, "");
                 return;
             }
             if (inchar != 0x2E) {
                 strcat(cmd_buf, inchar);
             }
-        }  
-    } 
+        }
+    }
 }
 
 int analyse() {
     ADDRESSPTR p, chptr, tok;
     char ch, space;
-    byte do_analyse, ishex;
+    byte do_analyse, ishex, notfound;
     int result;
     char checkbuf[20];
 
+    notfound = 1;
     strcpy(search_buf, "run");
-    println();
     result = findincmd();
-    if (result >= 0) {
-        p = adr(cmd_buf);
-        run_program(p);
+    if (notfound) {
+        if (result >= 0) {
+            p = adr(cmd_buf);
+            run_program(p);
+            notfound = 0;
+        }
     }
-    strcpy(search_buf, "dump");
-    println()
-    result = findincmd();
-    if (result >= 0) {
-        p = adr(cmd_buf);
-        dump_memory(p);
+    if (notfound) {
+        strcpy(search_buf, "dump");
+        result = findincmd();
+        if (result >= 0) {
+            p = adr(cmd_buf);
+            dump_memory(p);
+            notfound = 0;
+        }
     }
-    strcpy(search_buf, "exit");
-    result = findincmd();
-    if (result >= 0) {
-        println("\nexit monitor...\n");
-        return 1;
+    if (notfound) {
+        strcpy(search_buf, "exit");
+        result = findincmd();
+        if (result >= 0) {
+            println("\nexit monitor...\n");
+            return 1;
+        }
     }
-    strcpy(search_buf, "wozmon");
-    result = findincmd();
-    if (result >= 0) {
-        println("\nexit monitor to wozmon...\n");
-        _JMP wozmonentrypoint;
+    if (notfound) {
+        strcpy(search_buf, "wozmon");
+        result = findincmd();
+        if (result >= 0) {
+            println("\nexit monitor to wozmon...\n");
+            _JMP wozmonentrypoint;
+        }
     }
-    strcpy(search_buf, "uptime");
-    println();
-    result = findincmd();
-    if (result >= 0) {
-        printuptime(10000);
+    if (notfound) {
+        strcpy(search_buf, "uptime");
+        result = findincmd();
+        if (result >= 0) {
+            println();
+            printuptime(50000);
+        }
     }
     println();
     return 0;
@@ -214,7 +212,7 @@ int main(int argc, char ADDRESSPTR) {
     ADDRESSPTR funcptr;
     longlong timerinterval;
 
-    timerinterval = 10000;
+    timerinterval = 50000;
     settimer(timerinterval);
     state = 0;
     retval = 0;
@@ -235,9 +233,9 @@ int main(int argc, char ADDRESSPTR) {
             }
             if (inchar == 0x2A) { // start packet with * Symbol
                 // print("do:", cmd_buf);
-                puttomem();
+                puttmem();
                 strcpy(cmd_buf, "");
-                inchar == 0xD;
+                inchar = 0x0D;
             }
             if (inchar != 0xD) {
                 strcat(cmd_buf, inchar);
