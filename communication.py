@@ -174,17 +174,21 @@ class SerialConn:
     serconn = None
 
     def __init__(self, device):
-        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='N', timeout=10, xonxoff=0, rtscts=0)
+        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='N', timeout=2, xonxoff=0, rtscts=0)
         self.isopen = self.serconn.is_open
 
     def close(self):
         self.serconn.close()
 
-    def writedata(self, sendline):
+    def writedata_lf(self, sendline):
         tosystem = sendline + "\r"
         self.serconn.write(tosystem.encode())
         self.serconn.flush()
-        # time.sleep(0.05)
+
+    def writedata(self,sendline):
+        tosystem = sendline
+        self.serconn.write(tosystem.encode())
+        self.serconn.flush()
 
     def readdata(self, termstring):
         dlines = list()
@@ -203,7 +207,7 @@ class SerialConn:
                 receiveddata = r.decode("ascii").strip()
                 # print("Termstring:%s Received:%s Len():%d" % (str(termstring), str(receiveddata), len(receiveddata)))
                 if len(receiveddata) == 0:
-                    self.writedata("wozmon")
+                    self.writedata_lf("wozmon")
             except UnicodeDecodeError as e:
                 print("\nerror at decode at line: %s" % r)
                 return list()
@@ -212,7 +216,7 @@ class SerialConn:
         return dlines
 
     def commoperation(self):
-        self.writedata('8000.8007')
+        self.writedata_lf('8000.8007')
         result = self.readdata()
         for l in result:
             print(l)
@@ -224,11 +228,11 @@ class SerialConn:
         startaddress = int("0x%s" % cmd[0:4], base=16)
         isok = False
         while not isok:
-            self.writedata(cmd)
+            self.writedata_lf(cmd)
             result = self.readdata(termstring)
             endaddress = startaddress + 8
             checkcmd = "%04X.%04X" % (startaddress, endaddress)
-            self.writedata(checkcmd)
+            self.writedata_lf(checkcmd)
             termstring = "%04X:" % endaddress
             result = self.readdata(termstring)
             found = ""
@@ -264,7 +268,7 @@ class SerialConn:
         hexstart = "%04X" % startaddr
         hexend = "%04X" % endaddr
         command = "%s.%s" % (hexstart, hexend)
-        self.writedata(command)
+        self.writedata_lf(command)
         return self.readdata(termstring)
 
     def putdata(self, start, length, data):
@@ -274,36 +278,47 @@ class SerialConn:
             datavalues.append(int(d))
         print("starting transfer of data with length:%04x" % length)
         pointer = start
-        while pointer < length:
+        count = 0
+        while count < length:
             packetdata = ""
             checksum = 0
             for d in range(packetlength):
-                item = datavalues[pointer+d]
+                item = datavalues[d+count]
                 packetdata += "%02X " % item
                 checksum += item
             packetdata = packetdata[:-1]
             checksum = checksum & 0xFFFF
-            sendpacket = "*%02X %04X %s %04X." % (packetlength, pointer, packetdata, checksum)
+            headerchecksum = (packetlength + pointer) & 0xFFFF
+            sendpacket = "*%02X %04X %04X %s %04X." % (packetlength, pointer, headerchecksum, packetdata, checksum)
             sendfailed = True
             while sendfailed:
-                self.writedata(sendpacket)
-                status = self.getstatus()
-                if status.find("OK") > 0:
-                    print("Status of %04X OK, Message is:%s" % (pointer, status))
-                    sendfailed = False
+                if True:
+                    self.writedata(sendpacket)
+                    time.sleep(0.1)
+                    status = self.getstatus()
+                    if status.find("OK") >= 0:
+                        print("Max:%04X Status of %04X OK, Message is:%s" % (length + start, pointer, status))
+                        sendfailed = False
+                    else:
+                        print("Max:%04X Status of %04X NOT OK, Messages is:%s" % (length + start, pointer, status))
+                        sendfailed = True
                 else:
-                    print("Status of %04X NOT OK, Messages is:%s" % (pointer, status))
-                    sendfailed = True
+                    sendfailed = False
+                    print(sendpacket)
             pointer = pointer + packetlength
+            count = count + packetlength
 
     def getstatus(self):
         error = 0
         receiveddata = "no data"
         try:
             r = self.serconn.readline()
+        except:
+            return "SerialException in getstatus"
+        try:
             receiveddata = r.decode("ascii").strip()
         except:
-            error = 1
+            return "error during decode in getstatus"
         return receiveddata
 
         
