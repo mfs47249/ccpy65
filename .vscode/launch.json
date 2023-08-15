@@ -18,11 +18,12 @@
                      "-I", "testfiles/numbertests",
                      "-I", "libfuncs/stringfunctions",
                      "-I", "libfuncs/numberconvert",
+                     "-I", "libfuncs/memory",
                      "-I", "libfuncs/misc",
                      "-s", "0x3800",
                      "-g", "0x3000",
                      "-p", "0x0200",
-                     "dumptest.c"
+                     "serialtest.c"
                     ],
             "console": "integratedTerminal",
             "justMyCode": true

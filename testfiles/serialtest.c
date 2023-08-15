@@ -5,82 +5,73 @@
 
 char cmd_buf[256];
 
-void process_buffer() {
-    ADDRESSPTR p, datalength, dataaddress, dataitem, checkptr, address;
-    int length, checksum, index, calcchecksum, errors;
-    byte databyte;
+int convert_to_bin_err;
+convert_to_bin_err = 0;
 
-    errors = 0;
-    calcchecksum = 0;
-    p = adr(cmd_buf);
-    datalength = strtok(p); // get length of data from packet
-    length = convert_to_bin(datalength);
-    if (convert_to_bin_err != 0) {
-        errors = errors + 64;
-        println("lenerr");
-    }
-    dataaddress = strtok(0); // get address of data to put
-    address = convert_to_bin(dataaddress);
-    if (convert_to_bin_err != 0) {
-        errors = errors + 128;
-        println("adrerr");
-    }
-    if (errors == 0) {
-        index = 0;
-        while (index < length) {
-            dataitem = strtok(0);
-            databyte = convert_to_bin(dataitem);
-            if (convert_to_bin_err != 0) {
-                errors = errors + 1;
-                index = length; // end while loop
-            }
-            if (convert_to_bin_err == 0) {
-                poke(address, databyte);
-                calcchecksum = calcchecksum + databyte;
-                // print(databyte);
-            }
-            address = address + 1;
-            index = index + 1;
+void readbytes(ADDRESSPTR q, byte count) {
+    ADDRESSPTR p;
+    byte databyte, readcount, zero;
+
+    zero = 0;
+    p = q;
+    readcount = count;
+    while (readcount) {
+        databyte = getch();
+        if (databyte == 0x20) { // jump over one space
+            databyte = getch();
         }
-        checkptr = strtok(0);
-        checksum = convert_to_bin(checkptr);
-        if (convert_to_bin_err != 0) {
-            errors = errors + 256;
-        }
-        if (checksum != calcchecksum) {
-            errors = errors + 512;
-        }
+        poke(p, databyte);
+        p = p + 1;
+        readcount = readcount - 1;
     }
-    if (errors > 0) {
-        println("errorcode:", errors);
-        return;
-    }
-    println("OK,next:", address);
-    //println("len:", length, " adr:", address, " sum:", checksum, " calcsum:", calcchecksum, " errors:", errors);
+    poke(p,zero);
+    return;
 }
 
-void puttomem() {
-    int startaddress, endaddress;
-    byte endofdata, chars_to_read;
-    char inchar;
-    // sendpacket = "%02X %04X %s %02X"  length,address,data,checksum
 
-    endofdata = 0;
-    strcpy(cmd_buf, "");
-    while (endofdata == 0) {
-        chars_to_read = avail();
-        if (chars_to_read > 0) {
-            inchar = getch();
-            if (inchar == 0x2E) { // "." is end of data packet
-                process_buffer();
-                strcpy(cmd_buf, "");
-                return;
-            }
-            if (inchar != 0x2E) {
-                strcat(cmd_buf, inchar);
-            }
-        }  
-    } 
+void communication() {
+    ADDRESSPTR p, q, datalength, dataaddress, dataitem, checkptr, address, headerchecksum;
+    int length, checksum, index, calcchecksum, errors, header;
+    byte databyte, readcount, zero;
+    char databuf[16];
+
+    errors = 0;
+    zero = 0;
+    calcchecksum = 0;
+    p = adr(databuf);
+    // read length
+    readbytes(p, 2);
+    length = hex_to_bin(p);
+    // read address
+    readbytes(p, 4);
+    address = hex_to_bin(p);
+    // read header-checksum
+    readbytes(p, 4);
+    header = hex_to_bin(p);
+    calcchecksum = length + address;
+    // print("checksum:", header, " len:", length, " adr:", address);
+    if (calcchecksum == header) {
+        index = 0;
+        calcchecksum = 0;
+        while (index < length) {
+            readbytes(p, 2);
+            databyte = hex_to_bin(p);
+            poke(address, databyte);
+            // print("d:",databyte);
+            calcchecksum = calcchecksum + databyte;
+            index = index + 1;
+            address = address + 1;
+        }
+        // read checksum
+        readbytes(p, 4);
+        checksum = hex_to_bin(p);
+        if (checksum == calcchecksum) {
+            println("OK,next: ", address);
+            return;
+        }
+        println("ERR calc:", calcchecksum, " read:", checksum);
+    }
+    println("ERR head:", header);
 }
 
 int main(int argc, char ADDRESSPTR) {
@@ -112,7 +103,7 @@ int main(int argc, char ADDRESSPTR) {
             }
             if (inchar == 0x2A) { // start packet with * Symbol
                 // print("do:", cmd_buf);
-                puttomem();
+                communication();
                 strcpy(cmd_buf, "");
             }
     

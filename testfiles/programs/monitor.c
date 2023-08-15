@@ -4,6 +4,15 @@
 
 #include <findinstrings.c>
 #include <convert_to_bin.c>
+#include <dumpmemory.c>
+
+void help() {
+    println("du(mp) from to - dump memory from x to y");
+    println("ru(n) start    - run program at start");
+    println("up(time)       - show system uptime");
+    println("woz(mon)       - start wozmon");
+    println("he(lp)         - show this help");
+}
 
 
 void printuptime(longlong interval) {
@@ -23,14 +32,6 @@ void printuptime(longlong interval) {
     println("Uptime time is, in usec:", timeinusec, " in sec:", time_in_sec);
 }
 
-void dumpfromto(int start, int end) {
-    int startaddress, endaddress;
-
-    startaddress = start;
-    endaddress = end;
-    println("\ndump from:", startaddress, " to:", endaddress);
-}
-
 int dump_memory(ADDRESSPTR cmd_line) {
     ADDRESSPTR p;
     int result, startaddress, endaddress;
@@ -42,7 +43,6 @@ int dump_memory(ADDRESSPTR cmd_line) {
     p = strtok(0); // get first argument, startaddress
     // strcpy(temp, p); 
     converr = hex_to_bin_check(p);
-    println("converr:" converr);
     if (converr) {
         println("error converting start address");
         return 1;
@@ -80,6 +80,71 @@ int run_program(ADDRESSPTR cmd_line) {
     jumpaddress = runaddress;
     _JMP (global_jumpaddress);
     return 0;
+}
+
+void readbytes(ADDRESSPTR q, byte count) {
+    ADDRESSPTR p;
+    byte databyte, readcount, zero;
+
+    zero = 0;
+    p = q;
+    readcount = count;
+    while (readcount) {
+        databyte = getch();
+        if (databyte == 0x20) { // jump over one space
+            databyte = getch();
+        }
+        poke(p, databyte);
+        p = p + 1;
+        readcount = readcount - 1;
+    }
+    poke(p,zero);
+    return;
+}
+
+void communication() {
+    ADDRESSPTR p, q, datalength, dataaddress, dataitem, checkptr, address, headerchecksum;
+    int length, checksum, index, calcchecksum, errors, header;
+    byte databyte, readcount, zero;
+    char databuf[16];
+
+    errors = 0;
+    zero = 0;
+    calcchecksum = 0;
+    p = adr(databuf);
+    // read length
+    readbytes(p, 2);
+    length = hex_to_bin(p);
+    // read address
+    readbytes(p, 4);
+    address = hex_to_bin(p);
+    // read header-checksum
+    readbytes(p, 4);
+    header = hex_to_bin(p);
+    calcchecksum = length + address;
+    // print("checksum:", header, " len:", length, " adr:", address);
+    if (calcchecksum == header) {
+        index = 0;
+        calcchecksum = 0;
+        while (index < length) {
+            readbytes(p, 2);
+            databyte = hex_to_bin(p);
+            poke(address, databyte);
+            // print("d:",databyte);
+            calcchecksum = calcchecksum + databyte;
+            index = index + 1;
+            address = address + 1;
+        }
+        // read checksum
+        readbytes(p, 4);
+        checksum = hex_to_bin(p);
+        if (checksum == calcchecksum) {
+            println("OK,next: ", address);
+            return;
+        }
+        println("ERR calc:", calcchecksum, " read:", checksum);
+    }
+    println("ERR head:", header);
 }
 
 void process_buffer() {
@@ -156,10 +221,11 @@ int analyse() {
     int result;
     char checkbuf[20];
 
+    println();
     notfound = 1;
-    strcpy(search_buf, "run");
-    result = findincmd();
     if (notfound) {
+        strcpy(search_buf, "ru");
+        result = findincmd();
         if (result >= 0) {
             p = adr(cmd_buf);
             run_program(p);
@@ -167,7 +233,7 @@ int analyse() {
         }
     }
     if (notfound) {
-        strcpy(search_buf, "dump");
+        strcpy(search_buf, "du");
         result = findincmd();
         if (result >= 0) {
             p = adr(cmd_buf);
@@ -176,29 +242,41 @@ int analyse() {
         }
     }
     if (notfound) {
-        strcpy(search_buf, "exit");
+        strcpy(search_buf, "woz");
         result = findincmd();
         if (result >= 0) {
-            println("\nexit monitor...\n");
-            return 1;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "wozmon");
-        result = findincmd();
-        if (result >= 0) {
-            println("\nexit monitor to wozmon...\n");
+            println("exit monitor to wozmon...");
             _JMP wozmonentrypoint;
         }
     }
     if (notfound) {
-        strcpy(search_buf, "uptime");
+        strcpy(search_buf, "up");
         result = findincmd();
         if (result >= 0) {
             println();
             printuptime(50000);
+            notfound = 0;
         }
     }
+    if (notfound) {
+        strcpy(search_buf, "help");
+        result = findincmd();
+        if (result >= 0) {
+            help();
+            println();
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "exit");
+        result = findincmd();
+        if (result >= 0) {
+            println("exit monitor...");
+            return 1;
+        }
+    }
+    strcpy(search_buf, "");
+    strcpy(cmd_buf, "");
     println();
     return 0;
 }
@@ -226,17 +304,21 @@ int main(int argc, char ADDRESSPTR) {
                 retval = 1;
             }
             if (inchar == 0x0D) {
-                // print("do:", cmd_buf);
                 retval = analyse();
                 strcpy(cmd_buf, "");
 
             }
             if (inchar == 0x2A) { // start packet with * Symbol
-                // print("do:", cmd_buf);
                 puttmem();
                 strcpy(cmd_buf, "");
                 inchar = 0x0D;
             }
+            if (inchar == 0x2B) { // start packet with + Symbol
+                communication();
+                strcpy(cmd_buf, "");
+                inchar = 0x0D;
+            }
+
             if (inchar != 0xD) {
                 strcat(cmd_buf, inchar);
                 print(inchar);

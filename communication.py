@@ -174,7 +174,7 @@ class SerialConn:
     serconn = None
 
     def __init__(self, device):
-        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='N', timeout=2, xonxoff=0, rtscts=0)
+        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='N', timeout=1, xonxoff=0, rtscts=0)
         self.isopen = self.serconn.is_open
 
     def close(self):
@@ -289,12 +289,14 @@ class SerialConn:
             packetdata = packetdata[:-1]
             checksum = checksum & 0xFFFF
             headerchecksum = (packetlength + pointer) & 0xFFFF
-            sendpacket = "*%02X %04X %04X %s %04X." % (packetlength, pointer, headerchecksum, packetdata, checksum)
+            #sendpacket = "*%02X %04X %04X %s %04X." % (packetlength, pointer, headerchecksum, packetdata, checksum)
+            sendpacket = "+%02X %04X %04X %s %04X." % (packetlength, pointer, headerchecksum, packetdata, checksum)
             sendfailed = True
             while sendfailed:
                 if True:
                     self.writedata(sendpacket)
-                    time.sleep(0.1)
+                    # print(sendpacket)
+                    # time.sleep(0.1)
                     status = self.getstatus()
                     if status.find("OK") >= 0:
                         print("Max:%04X Status of %04X OK, Message is:%s" % (length + start, pointer, status))
