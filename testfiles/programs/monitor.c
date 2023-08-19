@@ -11,11 +11,29 @@ void help() {
     println("ru(n) start    - run program at start");
     println("up(time)       - show system uptime");
     println("woz(mon)       - start wozmon");
+    println("clear          - clear screen and init vt100 with ESC c");
     println("he(lp)         - show this help");
 }
 
+long timerinterval;
 
-void printuptime(longlong interval) {
+char chr(byte chvalue) {
+    return chvalue;
+}
+
+void resetterminal() {
+    char esc;
+    long wait;
+
+    esc = chr(27);
+    println(esc, "c");
+    wait = 100;
+    while (wait > 0) {
+        wait = wait - 1;
+    }
+}
+
+void printuptime(long interval) {
     longlong ticks;
     longlong usec;
     longlong timeval;
@@ -33,49 +51,44 @@ void printuptime(longlong interval) {
 }
 
 int dump_memory(ADDRESSPTR cmd_line) {
-    ADDRESSPTR p;
+    ADDRESSPTR p, converr_ptr;
     int result, startaddress, endaddress;
     byte converr;
-    // char temp[40];
 
     p = cmd_line;
     p = strtok(p); // skip over "dump" command
     p = strtok(0); // get first argument, startaddress
-    // strcpy(temp, p); 
-    converr = hex_to_bin_check(p);
+    converr_ptr = adr(converr);
+    startaddress = hex_to_long(p, converr_ptr);
     if (converr) {
         println("error converting start address");
         return 1;
     }
-    startaddress = hex_to_bin(p);
-    // println("dump p:", temp, "startaddress:", startaddress);
     p = strtok(0);  // get second argument, endaddress
-    converr = hex_to_bin_check(p);
+    endaddress = hex_to_long(p, converr_ptr);
     if (converr) {
         println("error converting end address");
         return 1;
     }
-    endaddress = hex_to_bin(p);
     // println("dump memory from:", startaddress, " to:", endaddress);
     dumpfromto(startaddress, endaddress);
 }
 
 ADDRESSPTR jumpaddress;
 int run_program(ADDRESSPTR cmd_line) {
-    ADDRESSPTR p;
+    ADDRESSPTR p, converr_ptr;
     int runaddress;
     byte converr;
 
     p = cmd_line;
     p = strtok(p); // skip over "run" command
     p = strtok(0); // get first argument
-
-    converr = hex_to_bin_check(p);
+    converr_ptr = adr(converr);
+    runaddress = hex_to_long(p, converr_ptr);
     if (converr) {
         println("error converting program start address");
         return 1;
     }
-    runaddress = hex_to_bin(p);
     println("\nrun address is:", runaddress);
     jumpaddress = runaddress;
     _JMP (global_jumpaddress);
@@ -84,9 +97,8 @@ int run_program(ADDRESSPTR cmd_line) {
 
 void readbytes(ADDRESSPTR q, byte count) {
     ADDRESSPTR p;
-    byte databyte, readcount, zero;
+    byte databyte, readcount;
 
-    zero = 0;
     p = q;
     readcount = count;
     while (readcount) {
@@ -98,86 +110,101 @@ void readbytes(ADDRESSPTR q, byte count) {
         p = p + 1;
         readcount = readcount - 1;
     }
-    poke(p,zero);
+    poke(p,0);
     return;
 }
 
+char databuf[16];
 void communication() {
-    ADDRESSPTR p, q, datalength, dataaddress, dataitem, checkptr, address, headerchecksum;
-    int length, checksum, index, calcchecksum, errors, header;
-    byte databyte, readcount, zero;
-    char databuf[16];
+    ADDRESSPTR datalength, dataaddress, dataitem, checkptr, address, headerchecksum, converr_ptr;
+    int length, checksum, index, calcchecksum, header, errors, converr;
+    byte databyte, readcount;
+    char ch;
 
     errors = 0;
-    zero = 0;
+    converr = 0;
+    converr_ptr = adr(converr);
+    strcpy(databuf, "    ");
     calcchecksum = 0;
-    p = adr(databuf);
     // read length
-    readbytes(p, 2);
-    length = hex_to_bin(p);
+    readbytes(databuf, 2);
+    length = hex_to_long(databuf, converr_ptr);
+    errors = errors + converr;
     // read address
-    readbytes(p, 4);
-    address = hex_to_bin(p);
+    readbytes(databuf, 4);
+    address = hex_to_long(databuf, converr_ptr);
+    errors = errors + converr;
     // read header-checksum
-    readbytes(p, 4);
-    header = hex_to_bin(p);
+    readbytes(databuf, 4);
+    header = hex_to_long(databuf, converr_ptr);
+    errors = errors + converr;
     calcchecksum = length + address;
     // print("checksum:", header, " len:", length, " adr:", address);
-    if (calcchecksum == header) {
-        index = 0;
-        calcchecksum = 0;
-        while (index < length) {
-            readbytes(p, 2);
-            databyte = hex_to_bin(p);
-            poke(address, databyte);
-            // print("d:",databyte);
-            calcchecksum = calcchecksum + databyte;
-            index = index + 1;
-            address = address + 1;
-        }
-        // read checksum
-        readbytes(p, 4);
-        checksum = hex_to_bin(p);
-        if (checksum == calcchecksum) {
-            println("OK,next: ", address);
+    if (errors == 0) {
+        if (calcchecksum == header) {
+            index = 0;
+            calcchecksum = 0;
+            while (index < length) {
+                readbytes(databuf, 2);
+                databyte = hex_to_long(databuf, converr_ptr);
+                poke(address, databyte);
+                // print("d:",databyte);
+                calcchecksum = calcchecksum + databyte;
+                errors = errors + converr;
+                index = index + 1;
+                address = address + 1;
+            }
+            // read checksum
+            readbytes(databuf, 4);
+            checksum = hex_to_long(databuf, converr_ptr);
+            calcchecksum = calcchecksum + errors;
+            if (checksum == calcchecksum) {
+                printlnhex("OK,next: ", address);
+                return;
+            }
+            printlnhex("ERR: data:", header, " calc:", calcchecksum, " read:", checksum, " errors:", errors);
             return;
         }
-        println("ERR calc:", calcchecksum, " read:", checksum);
     }
-    println("ERR head:", header);
+    printlnhex("ERR: header:", header, " calc:", calcchecksum, " address:", address, " errors:", errors);
 }
 
 void process_buffer() {
-    ADDRESSPTR p, datalength, dataaddress, dataitem, checkptr, address;
-    int length, checksum, index, calcchecksum, headerchecksum, errors;
-    byte databyte, converr;
+    ADDRESSPTR p, datalength, dataaddress, dataitem, checkptr, address, converr_ptr;
+    int length, checksum, index, calcchecksum, headerchecksum;
+    byte databyte, converr, errors;
 
     errors = 0;
+    converr_ptr = adr(converr);
     p = adr(cmd_buf);
     datalength = strtok(p); // get length of data from packet
-    length = hex_to_bin(datalength);
+    length = hex_to_long(datalength, converr_ptr);
+    errors = errors + converr;
     calcchecksum = length;
     dataaddress = strtok(0); // get address of data to put
-    address = hex_to_bin(dataaddress);
+    address = hex_to_long(dataaddress, converr_ptr);
+    errors = errors + converr;
     calcchecksum = calcchecksum + address;
     dataaddress = strtok(0); // get checksum of length + address
-    headerchecksum = hex_to_bin(dataaddress);
+    headerchecksum = hex_to_long(dataaddress, converr_ptr);
     if (calcchecksum != headerchecksum) {
-        errors = 1;
+        errors = errors + 1;
     }
     if (errors == 0) {
         calcchecksum = 0;
         index = 0;
         while (index < length) {
             dataitem = strtok(0);
-            databyte = hex_to_bin(dataitem);
+            databyte = hex_to_long(dataitem, converr_ptr);
+            errors = errors + converr;
             poke(address, databyte);
             calcchecksum = calcchecksum + databyte;
             address = address + 1;
             index = index + 1;
         }
         checkptr = strtok(0);
-        checksum = hex_to_bin(checkptr);
+        checksum = hex_to_long(checkptr, converr_ptr);
+        errors = errors + converr;
         if (checksum != calcchecksum) {
             errors = errors + 2;
         }
@@ -224,6 +251,14 @@ int analyse() {
     println();
     notfound = 1;
     if (notfound) {
+        strcpy(search_buf, "clear");
+        result = findincmd();
+        if (result >= 0) {
+            resetterminal();
+            notfound = 0;
+        }
+    }
+    if (notfound) {
         strcpy(search_buf, "ru");
         result = findincmd();
         if (result >= 0) {
@@ -254,7 +289,7 @@ int analyse() {
         result = findincmd();
         if (result >= 0) {
             println();
-            printuptime(50000);
+            printuptime(timerinterval);
             notfound = 0;
         }
     }
@@ -288,10 +323,12 @@ int main(int argc, char ADDRESSPTR) {
     byte idx;
     char inchar, ch;
     ADDRESSPTR funcptr;
-    longlong timerinterval;
+    long ti;
 
-    timerinterval = 50000;
-    settimer(timerinterval);
+    ti = 50000;
+    ti = 10000;
+    timerinterval = ti;
+    settimer(ti);
     state = 0;
     retval = 0;
     println("\nSTART mon...:");

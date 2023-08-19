@@ -349,6 +349,8 @@ class initasm:
         self.definecompilerfunction("println", "type_integer",argcount=-1)
         self.definecompilerfunction("printhex", "type_integer",argcount=-1)
         self.definecompilerfunction("printlnhex", "type_integer",argcount=-1)
+        self.definecompilerfunction("lcdcommand", "type_void",argcount=1)
+        self.definecompilerfunction("lcddata", "type_void",argcount=1)
         self.definecompilerfunction("strcpy", "type_pointer",argcount=-1)
         self.definecompilerfunction("strcat", "type_pointer",argcount=-1)
         self.definecompilerfunction("strlen", "type_byte",argcount=1)
@@ -453,12 +455,16 @@ class initasm:
             self.emit.createcode("INC", "outbuf_writecounter", "One more char in outbuffer", name="output_dont_enable_timer")
             self.emit.createcode("CLI", "", "interrupts are now allowed")
             # check for buffer full and wait until buffer is empty
-            self.emit.createcode("LDA", "outbuf_writecounter", "load counter", name="output_buffer_full_test_loop")
+            self.emit.createcode("LDA", "outbuf_writecounter", "load counter")
             self.emit.createcode("CMP", "#240", "check if buffer is almost full (8 chars left)")
             self.emit.createcode("BPL", "outbuf_exitwithrestoreregisters")
             self.emit.createcode("LDA", "outbuf_writecounter", "load counter", name="output_buffer_full_empty_loop")
-            self.emit.createcode("CMP", "#20", "check if buffer is empty")
-            self.emit.createcode("BPL", "_OUTPUT_GOSLEEP")
+            # empty buffer complete
+            self.emit.createcode("BNE", "_OUTPUT_GOSLEEP")
+            # empty buffer until 20 chars remaining, this may not work correctly
+            #self.emit.createcode("CMP", "#20", "check if buffer is empty")
+            #self.emit.createcode("BPL", "_OUTPUT_GOSLEEP")
+            # end of empty buffer
             # restore registers
             self.emit.createcode("PLX", "", "restore X-Register", name="outbuf_exitwithrestoreregisters")
             self.emit.createcode("PLA", "", "restore Accu")
@@ -485,6 +491,9 @@ class initasm:
     def emit_OUT_ACCU(self):
         # output a hex-byte  http://forum.6502.org/viewtopic.php?t=3164
         self.emit.insertinline("LABEL", "_OUT_ACCU", 0)
+        self.emit.createcode("PHX")
+        self.emit.createcode("PHY")
+        self.emit.createcode("PHA")
         self.emit.insertinline("SED","", 0)         #  A = entry value
         self.emit.insertinline("TAX","",0)
         self.emit.insertinline("AND", "#$0F", 0)
@@ -502,6 +511,9 @@ class initasm:
         self.emit.insertinline("JSR", "_OUTPUTCHAR", 0)
         self.emit.insertinline("TYA","",0)
         self.emit.insertinline("JSR", "_OUTPUTCHAR", 0)
+        self.emit.createcode("PLA")
+        self.emit.createcode("PLY")
+        self.emit.createcode("PLX")
         self.emit.insertinline("RTS", "", 0)
 
     def createvar(self, datatype, type_def, size, name):
@@ -541,7 +553,8 @@ class initasm:
         self.emit.createcode("STA", "ACIASTATUS", "writint to status register does soft reset")
         self.emit.createcode("LDA", "#%00011111", "Set No Par, 8bits + 2 stop, 19200baud")
         self.emit.createcode("STA", "ACIACONTROL")
-        self.emit.createcode("LDA", "#%00001001", "no par, no echo, interrupts disabled for TxD")
+        #self.emit.createcode("LDA", "#%00001001", "no par, no echo, interrupts disabled for TxD")
+        self.emit.createcode("LDA", "#%00101001", "odd par, no echo, interrupts disabled for TxD")
         self.emit.createcode("STA", "ACIACOMMAND")
         # initialize counters and pointers
         self.emit.createcode("LDA", "#0")
@@ -616,7 +629,7 @@ class initasm:
         self.emit.createcode("LDA", "VIAT2CL", "read low order register Timer 2, reset the interrupt flag for timer 2")
         # check for chars in buffer
         self.emit.createcode("LDA", "outbuf_writecounter", "check writecounter if char in buffer")
-        self.emit.createcode("BEQ", "outbuf_endtransmission", "if not 0, output char in buffer")
+        self.emit.createcode("BEQ", "outbuf_bufferempty", "if not 0, output char in buffer")
         # there are chars in buffer, we need to start another transmission
         self.emit.createcode("LDX", "outbuf_irqptr", "load IRQ Pointer")
         self.emit.createcode("LDA", "global_outbufacia,X", "load byte from outputbuffer")
@@ -630,8 +643,13 @@ class initasm:
         #   self.emit.createcode("LDX", "#0")
         self.emit.createcode("STX", "outbuf_irqptr", "", name="output_store_irq_ptr")
         self.emit.createcode("DEC", "outbuf_writecounter", "one char less in buffer")
+        self.emit.createcode("BRA", "outbuf_end")
+        self.emit.createcode("LDA", "#0", "clear buffers if all chars in buffer are transmitted",name="outbuf_bufferempty")
+        self.emit.createcode("STA", "outbuf_irqptr")
+        self.emit.createcode("STA", "outbuf_writeptr")
+        self.emit.createcode("STA", "outbuf_writecounter")
         # restore registers
-        self.emit.createcode("PLY", "", "restore X- and Y-Register", name="outbuf_endtransmission")
+        self.emit.createcode("PLY", "", "restore X- and Y-Register", name="outbuf_end")
         self.emit.createcode("PLX")
         self.emit.createcode("PLA", "", "restore accu", name="end_irq_handler_restore_accu")
         self.emit.createcode("RTS", "", "end_irq_handler_transmittimer", name="end_irq_handler_transmittimer")

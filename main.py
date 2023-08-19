@@ -284,12 +284,6 @@ class filedata:
             print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
         return
 
-    def processstartchar(self):
-        self.lasttoken = "charconst"
-        if self.debugscanner:
-            print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
-        return
-
     def processnumber(self):
         self.lasttoken += self.ch
         character = self.ch
@@ -361,6 +355,12 @@ class filedata:
             print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
         self.ungetch()
         return self.lasttoken
+
+    def processstartchar(self):
+        self.lasttoken = "charconst"
+        if self.debugscanner:
+            print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
+        return
 
     def processstartstring(self):
         self.lasttoken = ""

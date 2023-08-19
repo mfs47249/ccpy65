@@ -2543,9 +2543,20 @@ class codeemitter:
                 if sourceisregister:
                     print("SRC is register, ignoring size")
                 else:
-                    sys.exit(1)
+                    if self.checkhash(source_attr, "type_chararray"):
+                        pass
+                    else:
+                        sys.exit(1)
             idx = 0
-            if dest_size == 1:
+            if self.checkhash(source_attr, "type_chararray"):
+                if dest_size == 2:
+                    self.createcode("LDA", "#<%s" % sourcevarname, "copy from chararray:(%s) called" % sourcevarname)
+                    self.createcode("LDY", "#%s" % destvarname, "load offset for destination")
+                    self.createcode("STA", "(%s),Y" % destframe0, "store data to ptr")
+                    self.createcode("LDA", "#>%s" % sourcevarname)
+                    self.createcode("INY", "", "switch to next byte")
+                    self.createcode("STA", "(%s),Y" % destframe0, "store date")
+            elif dest_size == 1:
                 self.createcode("LDA", sourcevarname, "load global char")
                 self.createcode("LDY", "#%s" % destvarname, "load offset for destination")
                 self.createcode("STA", "(%s),Y" % destframe0, "store data to ptr")
@@ -3794,15 +3805,21 @@ class codeemitter:
             arg = arglist[1]
             if isinstance(arg, list):
                 if arg[0] == "number":
+                    sourcevarname_2_isconstant = True
+                    sourcevarname_2_constant = arg[1]
+                    sourcetype_2 = "int"
+                else:
                     print("internal function %s() must be called with var, not with number" % functionname)
                     sys.exit(1)
-            sourcestok_2 = arg
-            sourcesize_2 = sourcestok_2.getsize()
-            sourcenamespace_2 = sourcestok_2.getnamespace()
-            sourcevarname_2 = arg.getnamewithnamespace()
-            sourcetype_2 = sourcestok_2.gettype()
-            source_attr_2 = sourcestok_2.getattributehash()
-            source_name_2 = sourcestok_2.getname()
+            else:
+                sourcestok_2 = arg
+                sourcesize_2 = sourcestok_2.getsize()
+                sourcenamespace_2 = sourcestok_2.getnamespace()
+                sourcevarname_2 = arg.getnamewithnamespace()
+                sourcetype_2 = sourcestok_2.gettype()
+                source_attr_2 = sourcestok_2.getattributehash()
+                source_name_2 = sourcestok_2.getname()
+                sourcevarname_2_isconstant = False
 
         dest = destinationargs[0]
         destination_name = dest.getvarname()
@@ -3942,10 +3959,16 @@ class codeemitter:
                     self.createcode("LDA", "(%s),Y" % frame0)
                     self.createcode("STA", "_zpscratch_1", "save for indirect access")
                     # load second parameter to store at address given from the first parameter
-                    self.createcode("LDY", "#%s" % sourcevarname_2, "poke, get Value of %s" % sourcevarname_2)
-                    self.createcode("LDA", "(%s),Y" % frame0)
-                    self.createcode("LDY", "#0")
-                    self.createcode("STA", "(_zpscratch),Y", "store byte into address")
+                    if sourcevarname_2_isconstant:
+                        hexvalue = "%02X" % int(sourcevarname_2_constant)
+                        self.createcode("LDA", "#$%s" % hexvalue, "load constant %s in accu" % sourcevarname_2_constant)
+                        self.createcode("STA", "(_zpscratch)", "store byte into address")
+                        pass
+                    else:
+                        self.createcode("LDY", "#%s" % sourcevarname_2, "poke, get Value of %s" % sourcevarname_2)
+                        self.createcode("LDA", "(%s),Y" % frame0)
+                        self.createcode("LDY", "#0")
+                        self.createcode("STA", "(_zpscratch),Y", "store byte into address")
                 else:
                     print("function %s needs byte or int as second parameter, %s was given" % (functionname, sourcetype_2))
                     sys.exit(1)
@@ -4038,7 +4061,52 @@ class codeemitter:
             idx += 1
             self.createcode("LDA", "#$%s" % hexsize[0:2])
             self.createcode("STA", "%s_%d" % (destvarname, idx))
-    
+
+    def intfunc_lcd(self, functionobj, arglist, line=0):
+        debug = False
+        functionname = functionobj.getname()
+        functiondata = functionobj.getfuncdata()
+        functionsubroutine = functiondata.getsubroutine()
+        destinationargs = functiondata.getvar()
+        if (functionname == "lcdcommand" or functionname == "lcddata") and len(arglist) > 1:
+            print("internal function %s has only one argument" % functionname)
+            sys.exit(1)
+        arg = arglist[0]
+        argumenttype = "var"
+        if isinstance(arg, list):
+            if arg[0] == "number":
+                value = arg[1]
+                argumenttype = "const"
+            else:
+                print("internal function %s() must be called with var, not with number" % functionname)
+                sys.exit(1)
+        else:
+            sourcestok = arg
+            sourcesize = sourcestok.getsize()
+            sourcenamespace = sourcestok.getnamespace()
+            sourcevarname = arg.getnamewithnamespace()
+            sourcetype = sourcestok.gettype()
+            source_attr = sourcestok.getattributehash()
+            source_name = sourcestok.getname()
+        if functionname == "lcdcommand":
+            if argumenttype == "const":
+                self.createcode("LDA", "#%s" % value)
+                self.createcode("JSR", "lcd_instruction")
+            elif argumenttype == "var":
+                pass
+            else:
+                print("internal function %s() must be called with const or var" % functionname)
+        elif functionname == "lcddata":
+            if argumenttype == "const":
+                self.createcode("LDA", "#%s" % value)
+                self.createcode("JSR", "lcd_data")
+            elif argumenttype == "var":
+                pass
+            else:
+                print("internal function %s() must be called with const or var" % functionname)
+        
+
+
     def intfunc_tofloat(self, functionobj, arglist, line=0):
         debug = False
         functionname = functionobj.getname()
@@ -4448,7 +4516,6 @@ class codeemitter:
                     self.createcode("ADC", "#0")
                     self.createcode("STA", "kima_resh")
                     self.createcode("JSR", "kima_ustres")
-
 
     def startfunctionarguments(self, stoken, name, value, attributes):
         if self.opset6502_save_register:

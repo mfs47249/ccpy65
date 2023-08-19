@@ -2,6 +2,7 @@
 import serial
 import time
 import sys
+import argparse
 
 # communication.py is a helper script for copy the binary program a.out to the mini computer
 # It relies on the wozmon Monitorprogram (see Ben Eaters Video on YouTube about the wozmon)
@@ -174,7 +175,11 @@ class SerialConn:
     serconn = None
 
     def __init__(self, device):
-        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='N', timeout=1, xonxoff=0, rtscts=0)
+        self.device = device
+        self.openserial(self.device)
+    
+    def openserial(self,device):
+        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='O', timeout=1, xonxoff=0, rtscts=0)
         self.isopen = self.serconn.is_open
 
     def close(self):
@@ -187,8 +192,26 @@ class SerialConn:
 
     def writedata(self,sendline):
         tosystem = sendline
-        self.serconn.write(tosystem.encode())
+        dosend = True
+        while dosend:
+            try:
+                # error in write on serial should never happen, put it does on my windows system
+                # for solving the "permission denied" error on writing to the serial port on windows
+                # we close the connection and open a new one, this solves the problem the hard way
+                self.serconn.write(tosystem.encode())
+                dosend = False
+            except:
+                print("error in Serial write command")
+                self.close()
+                time.sleep(2)
+                self.openserial(self.device)
+                dosend = True
         self.serconn.flush()
+
+    def writedataraw(self,sendline):
+        tosystem = sendline
+        self.serconn.write(tosystem)
+        self.serconn.flush
 
     def readdata(self, termstring):
         dlines = list()
@@ -214,12 +237,6 @@ class SerialConn:
             dlines.append(receiveddata)
             linecount += 1
         return dlines
-
-    def commoperation(self):
-        self.writedata_lf('8000.8007')
-        result = self.readdata()
-        for l in result:
-            print(l)
 
     def putcommand(self, length, cmd):
         cmd = cmd.strip()
@@ -271,9 +288,9 @@ class SerialConn:
         self.writedata_lf(command)
         return self.readdata(termstring)
 
-    def putdata(self, start, length, data):
+    def putdata(self, start, length, data, startpattern):
         datavalues = list()
-        packetlength = 32
+        packetlength = 64
         for d in data:
             datavalues.append(int(d))
         print("starting transfer of data with length:%04x" % length)
@@ -289,8 +306,7 @@ class SerialConn:
             packetdata = packetdata[:-1]
             checksum = checksum & 0xFFFF
             headerchecksum = (packetlength + pointer) & 0xFFFF
-            #sendpacket = "*%02X %04X %04X %s %04X." % (packetlength, pointer, headerchecksum, packetdata, checksum)
-            sendpacket = "+%02X %04X %04X %s %04X." % (packetlength, pointer, headerchecksum, packetdata, checksum)
+            sendpacket = "%s%02X %04X %04X %s %04X" % (startpattern, packetlength, pointer, headerchecksum, packetdata, checksum)
             sendfailed = True
             while sendfailed:
                 if True:
@@ -323,10 +339,67 @@ class SerialConn:
             return "error during decode in getstatus"
         return receiveddata
 
-        
+    def putbyterange(self):
+        # for this test function, the receiving program looks like this:
+        # byte in, retval, chars_to_read;
+        # char ch;
+        # println("Serialtest:");
+        # retval = 0;
+        # while (retval == 0) {
+        #     chars_to_read = avail();
+        #     if (chars_to_read > 0) {
+        #         ch = getch();
+        #         in = ch;
+        #         println(in);
+        #     }
+        # }
+        # the program receives one byte and converts it to a hex value to
+        # send it back with a cr+lf at the end of line
+        print("putbyterange")
+        s = bytearray()
+        for i in range(256):
+            s.append(i)
+        idx = 0
+        while idx < len(s):
+            # self.writedataraw(x)
+            i = 0
+            t = bytearray()
+            t.append(s[idx+i])
+            readcount = 1
+            while readcount > 0:
+                readcount = self.serconn.inWaiting()
+                y = self.serconn.read(readcount)
+            self.serconn.write(t)   # write bytearray with one item
+            time.sleep(0.05)
+            y = self.serconn.readline().decode("ascii").strip()
+            if t[0] != y:
+                print("out:%02X in:%s" % (t[0], y))
+            idx += 1
+        print("End")
 
-address = 0x0200 # address to upload to
-
+datatransfer = "normal"
+pars = argparse.ArgumentParser()
+pars.add_argument("--startaddress", help="set startaddress to download the data")
+pars.add_argument("--woz", help="set wozmon monitor program for download data", action="store_true")
+pars.add_argument("--fastmode", help="setting communication to fast method", action="store_true")
+pars.add_argument("--testmode", help="set specific testmode")
+args = pars.parse_args()
+if not args:
+    print("no arguments given, setting downloadaddress to 0x0200")
+    print("and setting download method to bb-communication")
+    address = 0x0200 # address to upload to
+if args.woz:
+    datatransfer = "wozmode"
+else:
+    wozmon_communication = False
+if args.startaddress:
+    address = "%04X" % args.startaddress
+else:
+    address = 0x200
+if args.testmode:
+    datatransfer = args.testmode
+if args.fastmode:
+    datatransfer = "fastmode"
 
 print("sys.platform is:%s" % sys.platform)
 # Microsoft Windows Version of Path on my Computer (insert your path here)
@@ -370,11 +443,17 @@ try:
 except:
     print("Problems to open the serial connection, is your terminal program running?")
     sys.exit(1)
-wozmon_communication = False
-if wozmon_communication:
+if datatransfer == "fastmode":
+    comm.putdata(address, length, newdata, "+")
+elif datatransfer == "wozmode":
     for c in cmds:
         comm.putcommand(address + length, c)
+elif datatransfer == "normal":
+    comm.putdata(address, length, newdata, "*")
+elif datatransfer == "byterange":
+    print("putbyterange called")
+    comm.putbyterange()
 else:
-    comm.putdata(address, length, newdata)
+    print("unknown datatransfer mode: %s" % datatransfer)
 comm.close()
 print("done")

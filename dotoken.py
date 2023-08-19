@@ -589,6 +589,8 @@ class dotoken:
                 elif functionname == "real" or functionname == "integer" or functionname == "log" \
                             or functionname == "log10" or functionname == "exp":
                     self.code.intfunc_tofloat(foundtoken, arglist, line=self.t_linenumber)
+                elif functionname == "lcdcommand" or functionname == "lcddata":
+                    self.code.intfunc_lcd(foundtoken, arglist, line=self.t_linenumber)
                 elif functionname == "kim_clrx" or functionname == "kim_clry" or functionname == "kim_clrz" \
                         or functionname == "kim_iprec" or functionname == "kim_ploadx" or functionname == "kim_ploady" \
                         or functionname == "kim_uploadx" or functionname == "kim_uploady" or functionname == "kim_dechex" \
@@ -661,7 +663,7 @@ class dotoken:
         opcode = mnemonic[1:]
         arguments = ""
         self.nexttoken()
-        if self.t_value == "A":
+        if self.t_value == "number":
             xxxx = 0
         while self.t_type != "semicolon":
             if self.t_value == "comma":
