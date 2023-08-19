@@ -47,7 +47,7 @@ void main(int argc, int *argv) {
             if (ch == 3) {
                 doit = 0;
             }
-            print(ch);
+            lcddata(ch);
         }
     }
     _JMP $8000;

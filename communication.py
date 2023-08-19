@@ -435,7 +435,7 @@ try:
         comm = SerialConn("COM4")
     # this is the apple macintosh version of my serial connection
     if sys.platform == "darwin":
-        comm = SerialConn("/dev/cu.usbserial-14230")
+        comm = SerialConn("/dev/cu.usbserial-14130")
     if sys.platform == "linux":
         comm = SerialConn("/dev/ttyS0")
     if sys.platform == "cygwin":

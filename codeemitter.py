@@ -4088,6 +4088,13 @@ class codeemitter:
             sourcetype = sourcestok.gettype()
             source_attr = sourcestok.getattributehash()
             source_name = sourcestok.getname()
+            argumenttype = "var"
+            if self.checkhash(source_attr, "isargument"):
+                frame0 = "_framepointer_0"
+                frame1 = "_framepointer_1"
+            else:
+                frame0 = "_userstack_0"
+                frame1 = "_userstack_1"
         if functionname == "lcdcommand":
             if argumenttype == "const":
                 self.createcode("LDA", "#%s" % value)
@@ -4099,9 +4106,11 @@ class codeemitter:
         elif functionname == "lcddata":
             if argumenttype == "const":
                 self.createcode("LDA", "#%s" % value)
-                self.createcode("JSR", "lcd_data")
+                self.createcode("JSR", "print_lcdchar")
             elif argumenttype == "var":
-                pass
+                self.createcode("LDY","#%s" % sourcevarname)
+                self.createcode("LDA","(%s),Y" % frame0)
+                self.createcode("JSR", "print_lcdchar")
             else:
                 print("internal function %s() must be called with const or var" % functionname)
         
