@@ -191,10 +191,12 @@ _LABEL hex_to_int_exit_string_scan;
 */ 
 
 /* test programm for hex_to_long */
+
+
 /*
 char hexbuffer[16];
 
-void main(int argc, int *argv) {
+void hex_to_long_test(int argc, int *argv) {
     int count, result;
     byte error;
     char ch;
@@ -213,29 +215,28 @@ void main(int argc, int *argv) {
 
     strcpy(hexbuffer, "DE");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
     strcpy(hexbuffer, "01234");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
     strcpy(hexbuffer, "4711");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
     strcpy(hexbuffer, "11");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
     strcpy(hexbuffer, "DAE");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
     strcpy(hexbuffer, "012a34");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
     strcpy(hexbuffer, "471 1");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
-    strcpy(hexbuffer, "1_1");
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
+    strcpy(hexbuffer, "feedc0de");
     test = hex_to_long(hexbuffer, error_ptr);
-    printlnhex("value:", test, " error:", error);
+    printlnhex("buf:", hexbuffer, " value:", test, " error:", error);
 
 }
-
 */

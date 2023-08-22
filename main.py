@@ -357,7 +357,18 @@ class filedata:
         return self.lasttoken
 
     def processstartchar(self):
-        self.lasttoken = "charconst"
+        self.lasttoken = "charconst" # starting of characterconstant is '
+        achar = self.getch()         # get the char after starting of characterconstant
+        self.lasttoken = achar       # save char as token
+        achar = self.getch()         # get next char as end of char token, must be also a ' char
+        if achar != "'":
+            print("error char constant not terminated by ', terminator char was:%s in line:%d" % (achar, self.linenumber))
+            sys.exit(1)
+        if False: # this is the propper way, but to make things easy,...
+            tokens.addtoken(self.lasttoken, "type_charconstant", self.linenumber)
+        else: # ... we convert a char constant to an integer constant, keep this in mind if using 'X' for coding
+            self.lasttoken = str(ord(self.lasttoken))
+            tokens.addtoken(self.lasttoken, "number", self.linenumber)
         if self.debugscanner:
             print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
         return

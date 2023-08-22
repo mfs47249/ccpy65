@@ -288,9 +288,8 @@ class SerialConn:
         self.writedata_lf(command)
         return self.readdata(termstring)
 
-    def putdata(self, start, length, data, startpattern):
+    def putdata(self, start, length, data, packetlength, startpattern):
         datavalues = list()
-        packetlength = 64
         for d in data:
             datavalues.append(int(d))
         print("starting transfer of data with length:%04x" % length)
@@ -383,7 +382,9 @@ pars.add_argument("--startaddress", help="set startaddress to download the data"
 pars.add_argument("--woz", help="set wozmon monitor program for download data", action="store_true")
 pars.add_argument("--fastmode", help="setting communication to fast method", action="store_true")
 pars.add_argument("--testmode", help="set specific testmode")
+pars.add_argument("--length", help="set length of data packet (usually 64")
 args = pars.parse_args()
+packetlength = 64
 if not args:
     print("no arguments given, setting downloadaddress to 0x0200")
     print("and setting download method to bb-communication")
@@ -400,6 +401,8 @@ if args.testmode:
     datatransfer = args.testmode
 if args.fastmode:
     datatransfer = "fastmode"
+if args.length:
+    packetlength = int(args.length)
 
 print("sys.platform is:%s" % sys.platform)
 # Microsoft Windows Version of Path on my Computer (insert your path here)
@@ -444,12 +447,12 @@ except:
     print("Problems to open the serial connection, is your terminal program running?")
     sys.exit(1)
 if datatransfer == "fastmode":
-    comm.putdata(address, length, newdata, "+")
+    comm.putdata(address, length, newdata, packetlength, "+")
 elif datatransfer == "wozmode":
     for c in cmds:
         comm.putcommand(address + length, c)
 elif datatransfer == "normal":
-    comm.putdata(address, length, newdata, "*")
+    comm.putdata(address, length, newdata, packetlength, "*")
 elif datatransfer == "byterange":
     print("putbyterange called")
     comm.putbyterange()

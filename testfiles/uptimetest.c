@@ -30,6 +30,7 @@ void main(int argc, int *argv) {
     int doit;
     long ti;
     char ch;
+    byte temp;
     int readcount;
 
     ti = 50000;
@@ -46,6 +47,19 @@ void main(int argc, int *argv) {
             }
             if (ch == 3) {
                 doit = 0;
+            }
+            if (ch == 'A') {
+                lcdcommand(1); // clear screen of lcd
+            }
+            if (ch == 'B') {
+                lcdcommand(2); // return home
+            }
+            if (ch < 'Z') {
+                if (ch > 'C') {
+                    temp = ch - 'C' + 64;
+                    println("ord(temp):", temp);
+                    lcdcommand(temp);
+                }
             }
             lcddata(ch);
         }
