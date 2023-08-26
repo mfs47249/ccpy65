@@ -1,8 +1,19 @@
 #!/usr/bin/python3
 import serial
 import time
+import os
 import sys
 import argparse
+
+if os.name == 'nt':
+    from serial.tools.list_ports_windows import comports
+elif os.name == 'posix':
+    from serial.tools.list_ports_posix import comports
+else:
+    raise ImportError("Sorry: no implementation for your platform ('{}') available".format(os.name))
+
+
+
 
 # communication.py is a helper script for copy the binary program a.out to the mini computer
 # It relies on the wozmon Monitorprogram (see Ben Eaters Video on YouTube about the wozmon)
@@ -179,7 +190,7 @@ class SerialConn:
         self.openserial(self.device)
     
     def openserial(self,device):
-        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=2, parity='O', timeout=1, xonxoff=0, rtscts=0)
+        self.serconn = serial.Serial(port=device, baudrate=19200, bytesize=8, stopbits=1, parity='O', timeout=1, xonxoff=0, rtscts=0)
         self.isopen = self.serconn.is_open
 
     def close(self):
@@ -305,23 +316,25 @@ class SerialConn:
             packetdata = packetdata[:-1]
             checksum = checksum & 0xFFFF
             headerchecksum = (packetlength + pointer) & 0xFFFF
-            sendpacket = "%s%02X %04X %04X %s %04X" % (startpattern, packetlength, pointer, headerchecksum, packetdata, checksum)
+            if startpattern == "*":
+                if packetlength > 32:
+                    print("old method only with max 32 byte of length, set with --length 32")
+                    sys.exit(1)
+                sendpacket = "*%02X %04X %04X %s %04X." % (packetlength, pointer, headerchecksum, packetdata, checksum)
+            else:
+                sendpacket = "%s%02X %04X %04X %s %04X" % (startpattern, packetlength, pointer, headerchecksum, packetdata, checksum)
             sendfailed = True
             while sendfailed:
-                if True:
-                    self.writedata(sendpacket)
-                    # print(sendpacket)
-                    # time.sleep(0.1)
-                    status = self.getstatus()
-                    if status.find("OK") >= 0:
-                        print("Max:%04X Status of %04X OK, Message is:%s" % (length + start, pointer, status))
-                        sendfailed = False
-                    else:
-                        print("Max:%04X Status of %04X NOT OK, Messages is:%s" % (length + start, pointer, status))
-                        sendfailed = True
-                else:
+                self.writedata(sendpacket)
+                # print("sp:%s, hc:%s, dc:%s" % (sendpacket, headerchecksum, checksum))
+                # time.sleep(0.1)
+                status = self.getstatus()
+                if status.find("OK") >= 0:
+                    print("Max:%04X Status of %04X OK, Message is:%s" % (length + start, pointer, status))
                     sendfailed = False
-                    print(sendpacket)
+                else:
+                    print("Max:%04X Status of %04X NOT OK, Messages is:%s" % (length + start, pointer, status))
+                    sendfailed = True
             pointer = pointer + packetlength
             count = count + packetlength
 
@@ -330,8 +343,13 @@ class SerialConn:
         receiveddata = "no data"
         try:
             r = self.serconn.readline()
+        except KeyboardInterrupt:
+            print("Abort Program by User")
+            sys.exit(1)
         except:
-            return "SerialException in getstatus"
+            e = sys.exc_info()[1]
+            print(e)
+            return "SerialException in readline"
         try:
             receiveddata = r.decode("ascii").strip()
         except:
@@ -404,6 +422,7 @@ if args.fastmode:
 if args.length:
     packetlength = int(args.length)
 
+
 print("sys.platform is:%s" % sys.platform)
 # Microsoft Windows Version of Path on my Computer (insert your path here)
 if sys.platform == "win32":
@@ -435,13 +454,21 @@ cmds = writedata.returncmds(address)
 try:
     # this is the windows version of my serial connection 
     if sys.platform == "win32":
+        for port in comports():
+            print(port)
         comm = SerialConn("COM4")
     # this is the apple macintosh version of my serial connection
     if sys.platform == "darwin":
+        for port in comports():
+            print(port)
         comm = SerialConn("/dev/cu.usbserial-14130")
     if sys.platform == "linux":
+        for port in comports():
+            print(port)
         comm = SerialConn("/dev/ttyS0")
     if sys.platform == "cygwin":
+        for port in comports():
+            print(port)
         comm = SerialConn("/dev/ttyS3")
 except:
     print("Problems to open the serial connection, is your terminal program running?")

@@ -3352,7 +3352,7 @@ class codeemitter:
                 self.createcode("LDY", "#0", "internal write called with stringconstant")
                 self.createcode("LDA", "%s,Y" % stringlabel, name=loop)
                 self.createcode("BEQ", endloop)
-                self.createcode("CMP", "#$5C", "check for backsladh")
+                self.createcode("CMP", "#$5C", "check for backslash")
                 self.createcode("BNE", dochar)
                 self.createcode("INY")
                 self.createcode("LDA", "%s,Y" % stringlabel)
@@ -3612,6 +3612,7 @@ class codeemitter:
                         self.createcode("JMP", searchzero)
                     elif functionname == "strcpy":
                         self.createcode("LDY", "#0", "strcpy: copy to beginning of char array")
+                        
                     else:
                         print("error in strcpy, strcat...  unknown funktionname:%s" % functionname)
                         sys.exit(1)
@@ -4088,6 +4089,7 @@ class codeemitter:
             sourcetype = sourcestok.gettype()
             source_attr = sourcestok.getattributehash()
             source_name = sourcestok.getname()
+            source_value = sourcestok.getvalue()
             argumenttype = "var"
             if self.checkhash(source_attr, "isargument"):
                 frame0 = "_framepointer_0"
@@ -4113,8 +4115,38 @@ class codeemitter:
                 self.createcode("JSR", "print_lcdchar")
             else:
                 print("internal function %s() must be called with const or var" % functionname)
-        
-
+        elif functionname == "lcdstring":
+            if argumenttype == "var":
+                if self.checkhash(source_attr, "type_chararray"):
+                    if sourcenamespace == "global":
+                        self.createcode("LDA", "#<%s" % sourcevarname)
+                        self.createcode("STA", "irqscratchpointer_0")
+                        self.createcode("LDA", "#>%s" % sourcevarname)
+                        self.createcode("STA", "irqscratchpointer_1")
+                    else:
+                        self.createcode("CLC")
+                        self.createcode("LDA", "#%s" % sourcevarname)
+                        self.createcode("ADC", frame0)
+                        self.createcode("STA", "irqscratchpointer_0")
+                        self.createcode("LDA", "#0")
+                        self.createcode("ADC", frame1)
+                        self.createcode("STA", "irqscratchpointer_1")
+                elif self.checkhash(source_attr, "type_stringconst"):
+                        stringlabel = self.randomword(8)
+                        self.addstring(stringlabel, "\"%s\"" % source_value)
+                        self.createcode("LDA", "#<%s" % stringlabel)
+                        self.createcode("STA", "irqscratchpointer_0")
+                        self.createcode("LDA", "#>%s" % stringlabel)
+                        self.createcode("STA", "irqscratchpointer_1")
+                        self.createcode("")
+                else:
+                    print("lcdstring called with attributes:%s not implemented yet" % source_attr)
+                    sys.exit(1)
+                self.createcode("JSR", "lcdstring")
+            elif argumenttype == "const":
+                print("internal function %s() must be called with var argument" % functionname)
+            else:
+                print("internal function %s() must be called with const or var" % functionname)
 
     def intfunc_tofloat(self, functionobj, arglist, line=0):
         debug = False

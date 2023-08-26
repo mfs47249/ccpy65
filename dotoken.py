@@ -589,7 +589,7 @@ class dotoken:
                 elif functionname == "real" or functionname == "integer" or functionname == "log" \
                             or functionname == "log10" or functionname == "exp":
                     self.code.intfunc_tofloat(foundtoken, arglist, line=self.t_linenumber)
-                elif functionname == "lcdcommand" or functionname == "lcddata":
+                elif functionname == "lcdcommand" or functionname == "lcddata" or functionname == "lcdstring":
                     self.code.intfunc_lcd(foundtoken, arglist, line=self.t_linenumber)
                 elif functionname == "kim_clrx" or functionname == "kim_clry" or functionname == "kim_clrz" \
                         or functionname == "kim_iprec" or functionname == "kim_ploadx" or functionname == "kim_ploady" \

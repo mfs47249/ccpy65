@@ -20,4 +20,4 @@ emu:
 	emu -f a.out -s 512
 
 transfer:
-	python3 ../communication.py
+	python3 ../communication.py --fastmode

@@ -2,8 +2,6 @@
 char cmd_buf[256];
 char search_buf[64];
 
-
-
 int findincmd() {
     ADDRESSPTR cmdptr, searchptr, p1, p2;
     int cmdlen, searchlen, searchidx, cmdidx, pos, zero;

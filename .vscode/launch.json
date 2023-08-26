@@ -23,7 +23,7 @@
                      "-s", "0x3800",
                      "-g", "0x3000",
                      "-p", "0x0200",
-                     "uptimetest.c"
+                     "commandtest.c"
                     ],
             "console": "integratedTerminal",
             "justMyCode": true

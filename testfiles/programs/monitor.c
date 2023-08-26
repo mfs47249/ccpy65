@@ -39,15 +39,29 @@ void printuptime(long interval) {
     longlong timeval;
     longlong timeinusec;
     longlong time_in_sec;
+    longlong llinterval;
+    longlong days, hours, minutes, seconds;
 
+    timeval = 0;
+    llinterval = 0;
+    llinterval = interval;
     timeval = gettimer();
     usec = timeval;
     ticks = timeval;
     and(usec, 0xFFFF);
     shiftright(ticks, 16);
-    timeinusec = (ticks * interval) + usec;
-    time_in_sec = timeinusec / 1000000;
-    println("Uptime time is, in usec:", timeinusec, " in sec:", time_in_sec);
+    //timeinusec = (ticks * llinterval) + usec;
+    timeinusec = (ticks * 10000) + usec;
+    //println("Uptime time is, in usec:", timeinusec);
+    seconds = timeinusec / 1000000;
+    minutes = seconds / 60;
+    hours = minutes / 60;
+    days = hours / 24;
+    seconds = seconds - (minutes * 60);
+    minutes = minutes - (hours * 60);
+    hours = hours - (days * 24);
+    //time_in_sec = (timeinusec / 1000000) - (minutes * 60);
+    println("usec:" timeinusec, " days:", days, " hours:", hours, " minutes:", minutes, " sec:", seconds);
 }
 
 int dump_memory(ADDRESSPTR cmd_line) {
@@ -325,7 +339,6 @@ int main(int argc, char ADDRESSPTR) {
     ADDRESSPTR funcptr;
     long ti;
 
-    ti = 50000;
     ti = 10000;
     timerinterval = ti;
     settimer(ti);

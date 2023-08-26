@@ -22,26 +22,21 @@ void dumpfromto(ADDRESSPTR start, ADDRESSPTR end) {
         b = peek(p);
         while (index < 8) {
             p = p + 1;
-            ci = peek(p);
-            if (ci < 0x20) {
-                ci = 46;
+            ch = peek(p);
+            if (ch < ' ') {
+                ch = '.';
             }
-            if (ci > 127) {
-                ci = 46;
+            if (ch > 127) {
+                ch = '.';
             }
-            ch = ci;
-            print(ch,"");
+            print(ch);
             index = index + 1;
         }
         println();
         ci = avail();
         if (ci > 0) {
             ch = getch();
-            if (ch == 3) {
-                // ctrl-c typed, abort
-                p = endaddress;
-            }
-            if (ch == 0x20) {
+            if (ch == ' ') {
                 // space typed, wait until next char
                 ci = 0;
                 while (ci == 0) {
@@ -49,6 +44,9 @@ void dumpfromto(ADDRESSPTR start, ADDRESSPTR end) {
                 }
                 while (ci) {
                     ch = getch();
+                    if (ch == 'q') {
+                        return;
+                    }
                     ci = avail();
                 }
             }
