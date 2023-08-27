@@ -670,23 +670,27 @@ class initasm:
         self.emit.createcode("INC", "inbuf_irqptr")
         # exit handler
         self.emit.createcode("RTS", "", "", name="inbuf_exitaciairqhandlernopla")
-        # signaling an timeout error during get char from acia, using at sign here, because hopefully it has a rare occurence
-        self.emit.createcode("LDA", "#'#'", "", name="inbuf_exitaciairqhandler_with_parity")
+        # prepare to inject error message, using escape char #$FF followed by error codes P, for parity error,
+        # F, for framing error, O, for overrun and I for spurious Interrupt (acia got an IRQ but no char was availiable)
+        self.emit.createcode("LDY", "#'P'", "", name="inbuf_exitaciairqhandler_with_parity")
         self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
-        self.emit.createcode("LDA", "#'%'", "", name="inbuf_exitaciairqhandler_with_overrun")
+        self.emit.createcode("LDY", "#'O'", "", name="inbuf_exitaciairqhandler_with_overrun")
         self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
-        self.emit.createcode("LDA", "#'$'", "", name="inbuf_exitaciairqhandler_with_frameing")
+        self.emit.createcode("LDY", "#'F'", "", name="inbuf_exitaciairqhandler_with_frameing")
         self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
-        self.emit.createcode("LDA", "#'@'", "", name="inbuf_exitaciairqhandler_with_error")
+        self.emit.createcode("LDY", "#'I'", "", name="inbuf_exitaciairqhandler_with_error")
+        #
         self.emit.createcode("LDX", "inbuf_irqptr", "load index for read buffer", name="inbuf_exitirqhandler_with_any_error")
+        self.emit.createcode("LDA", "#$FF", "put escape char in buffer")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
         self.emit.createcode("INC", "inbuf_readcounter")
-        self.emit.createcode("LDA", "ACIADATA", "get char")
+        self.emit.createcode("TYA")
         self.emit.createcode("LDX", "inbuf_irqptr", "load index for read buffer")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
         self.emit.createcode("INC", "inbuf_readcounter")
+        self.emit.createcode("LDA", "ACIADATA", "get char from acia only for resetting the irq line")
         self.emit.createcode("RTS")
 
     def emit_transmittimer(self):
