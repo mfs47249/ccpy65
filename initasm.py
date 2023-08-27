@@ -682,6 +682,11 @@ class initasm:
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
         self.emit.createcode("INC", "inbuf_readcounter")
+        self.emit.createcode("LDA", "ACIADATA", "get char")
+        self.emit.createcode("LDX", "inbuf_irqptr", "load index for read buffer")
+        self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
+        self.emit.createcode("INC", "inbuf_irqptr")
+        self.emit.createcode("INC", "inbuf_readcounter")
         self.emit.createcode("RTS")
 
     def emit_transmittimer(self):
