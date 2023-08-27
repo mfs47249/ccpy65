@@ -452,7 +452,7 @@ class initasm:
             self.emit.createcode("WAI", "", "wait until next IRQ (mainly Timer 1 when no IO-activity")
         self.emit.createcode("RTS", "", "return", name="_INPUT_CHARS_IN_BUFFER")
         #
-        # wait for input and get char if present
+        # wait for input and get char if present.
         #
         self.emit.insertinline("LABEL", "_INPUT_WAIT", 0)
         self.emit.createcode("PHX", "", "save registers")
@@ -665,7 +665,13 @@ class initasm:
         # prcess a new char from acia
         self.emit.createcode("INC", "inbuf_readcounter", "one char more in buffer", name="acia_process_irq_char")
         self.emit.createcode("LDA", "ACIADATA", "get char")
+        self.emit.createcode("CMP", "#$FF", "if received char is the escape char, then send them twice")
+        self.emit.createcode("BNE", "inbuf_escape_char_checked")
         self.emit.createcode("LDX", "inbuf_irqptr")
+        self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
+        self.emit.createcode("INC", "inbuf_irqptr")
+        self.emit.createcode("INC", "inbuf_readcounter")
+        self.emit.createcode("LDX", "inbuf_irqptr", name="inbuf_escape_char_checked")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
         # exit handler
