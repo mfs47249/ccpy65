@@ -401,6 +401,8 @@ pars.add_argument("--woz", help="set wozmon monitor program for download data", 
 pars.add_argument("--fastmode", help="setting communication to fast method", action="store_true")
 pars.add_argument("--testmode", help="set specific testmode")
 pars.add_argument("--length", help="set length of data packet (usually 64")
+pars.add_argument("--device", help="setting serial device")
+pars.add_argument("--transferfile", help="transfer the file with the filename to")
 args = pars.parse_args()
 packetlength = 64
 if not args:
@@ -421,22 +423,28 @@ if args.fastmode:
     datatransfer = "fastmode"
 if args.length:
     packetlength = int(args.length)
+if args.device:
+    device = args.device
+if args.transferfile:
+    transferfile = args.transferfile
 
-
-print("sys.platform is:%s" % sys.platform)
-# Microsoft Windows Version of Path on my Computer (insert your path here)
-if sys.platform == "win32":
-    print("open data for win32 platform")
-    towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
-if sys.platform == "cygwin":
-    print("open data for win32 platform with cygwin")
-    towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
-# Apple Macintosh Version of Path on my Computer
-if sys.platform == "darwin":
-    towritedata = open("/Users/mf/github/ccpy65/asmtest/a.out", "rb")
-if sys.platform == "linux":
-    towritedata = open("/home/mf/github/ccpy65/asmtest/a.out", "rb")
-#
+if not args.transferfile:
+    print("sys.platform is:%s" % sys.platform)
+    # Microsoft Windows Version of Path on my Computer (insert your path here)
+    if sys.platform == "win32":
+        print("open data for win32 platform")
+        towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
+    if sys.platform == "cygwin":
+        print("open data for win32 platform with cygwin")
+        towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
+    # Apple Macintosh Version of Path on my Computer
+    if sys.platform == "darwin":
+        towritedata = open("/Users/mf/github/ccpy65/asmtest/a.out", "rb")
+    if sys.platform == "linux":
+        towritedata = open("/home/mf/github/ccpy65/asmtest/a.out", "rb")
+    #
+else:
+    towritedata = open(args.transferfile, "rb")
 newdata = towritedata.read()
 towritedata.close()
 length = grepcode(newdata, [0xFE, 0xED, 0xC0, 0xDE])
@@ -451,28 +459,32 @@ if not checkok:
     print("check is not ok, data is invalid")
     sys.exit(1)
 cmds = writedata.returncmds(address)
-try:
-    # this is the windows version of my serial connection 
-    if sys.platform == "win32":
-        for port in comports():
-            print(port)
-        comm = SerialConn("COM4")
-    # this is the apple macintosh version of my serial connection
-    if sys.platform == "darwin":
-        for port in comports():
-            print(port)
-        comm = SerialConn("/dev/cu.usbserial-14130")
-    if sys.platform == "linux":
-        for port in comports():
-            print(port)
-        comm = SerialConn("/dev/ttyS0")
-    if sys.platform == "cygwin":
-        for port in comports():
-            print(port)
-        comm = SerialConn("/dev/ttyS3")
-except:
-    print("Problems to open the serial connection, is your terminal program running?")
-    sys.exit(1)
+if not args.device:
+    try:
+        # this is the windows version of my serial connection 
+        if sys.platform == "win32":
+            for port in comports():
+                print(port)
+            comm = SerialConn("COM4")
+        # this is the apple macintosh version of my serial connection
+        if sys.platform == "darwin":
+            for port in comports():
+                print(port)
+            comm = SerialConn("/dev/cu.usbserial-14210")
+        if sys.platform == "linux":
+            for port in comports():
+                print(port)
+            comm = SerialConn("/dev/ttyS0")
+        if sys.platform == "cygwin":
+            for port in comports():
+                print(port)
+            comm = SerialConn("/dev/ttyS3")
+    except:
+        print("Problems to open the serial connection, is your terminal program running?")
+        sys.exit(1)
+else:
+    print("opening port from given argument:%s" % device)
+    comm = SerialConn(device)
 if datatransfer == "fastmode":
     comm.putdata(address, length, newdata, packetlength, "+")
 elif datatransfer == "wozmode":
