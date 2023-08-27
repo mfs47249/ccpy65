@@ -303,6 +303,12 @@ class codeemitter:
         self.varstartaddress = startaddress
         self.internalvarcounter = self.varstartaddress
 
+    def setstackstart(self, startaddress):
+        self.stackstartaddress = startaddress
+
+    def getstackstart(self):
+        return self.stackstartaddress
+
     def setlabel(self, labelname):
         fmtstr = "%%-%ds" % self.labelwidth
         self.linelabel = fmtstr % (labelname + ':')

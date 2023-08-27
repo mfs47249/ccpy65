@@ -522,9 +522,9 @@ class initsystem:
         ap.add_argument("-f", "--file", help="use file for input")
         ap.add_argument("-o", "--outfile", help="namepath for output file")
         ap.add_argument("-I", "--include", action="append", help="include path")
-        ap.add_argument("-s", "--varstart", help="set startaddress of varmemory (decimal), above memory is reserved for global var,\n below is reserved for stack until heapstart")
-        ap.add_argument("-g", "--heapstart", help="set startaddress of heap (decimal), heap will be reserved\n below until codesegment ist reached")
-        ap.add_argument("-p", "--progstart", help="set start of program")
+        ap.add_argument("--stackstart", help="below is reserved for stack")
+        ap.add_argument("--varstart", help="set startaddress of var, grows to higher address")
+        ap.add_argument("--progstart", help="set start of program")
         ap.add_argument("files", type=str, nargs="+", help="list of files")
         self.ccargs = vars(ap.parse_args())
         if self.ccargs["debug"] == True:
@@ -549,13 +549,13 @@ class initsystem:
             else:
                 self.varstart = int(a_varstart)
             print("varstart is:%04X, decimal:%d" % (self.varstart, self.varstart))
-        if self.ccargs["heapstart"] != None:
-            a_heapstart = self.ccargs['heapstart']
-            if a_heapstart[0:2] == "0x":
-                print("heapstart is a hex number")
-                self.heapstart = int(a_heapstart, 16)
+        if self.ccargs["stackstart"] != None:
+            a_stackstart = self.ccargs['stackstart']
+            if a_stackstart[0:2] == "0x":
+                print("stackstart is a hex number")
+                self.stackstart = int(a_stackstart, 16)
             else:
-                self.heapstart = int(a_heapstart)
+                self.stackstart = int(a_stackstart)
             print("Heap Start is:%04X, decimal:%d" % (self.heapstart, self.heapstart))
         if self.ccargs["progstart"] != None:
             a_progstart = self.ccargs['progstart']
@@ -581,6 +581,9 @@ class initsystem:
 
     def getprogstart(self):
         return self.progstart
+
+    def getstackstart(self):
+        return self.stackstart
 
     def searchincludepath(self):
         self.fil = findinincludelist(self.ccargs["include"])
@@ -639,6 +642,6 @@ if __name__ == "__main__":
         fd.processdata(instance)
     # tokens.listtokens()
     # tokens.listall()
-    tokens.emit(instance.getvarstart(), instance.getprogstart(), instance.getoutfilepath())
+    tokens.emit(instance.getvarstart(), instance.getprogstart(), instance.getstackstart(), instance.getoutfilepath())
     tokens.close()
     # tokens.listalluserdefined()

@@ -484,7 +484,10 @@ if not args.device:
         sys.exit(1)
 else:
     print("opening port from given argument:%s" % device)
-    comm = SerialConn(device)
+    try:
+        comm = SerialConn(device)
+    except:
+        print("Problems opening device:%s, is your terminal program running?" % device)
 if datatransfer == "fastmode":
     comm.putdata(address, length, newdata, packetlength, "+")
 elif datatransfer == "wozmode":

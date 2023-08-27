@@ -28,7 +28,7 @@ class initasm:
     zeropagestart = 0x0000
     programstart = 0x0200
 
-    def __init__(self, logger, emit, stokens, varstart, programstart):
+    def __init__(self, logger, emit, stokens, varstart, programstart, stackstart):
         self.programstart = programstart
         self.logger = logger
         self.emit = emit
@@ -338,7 +338,7 @@ class initasm:
         self.emit_OUTPUTCHAR()
         self.emit_OUT_ACCU()
         self.emit_OUT_ACCU_lcd()
-        self.setuserstackaddress(varstart)
+        self.setuserstackaddress(stackstart)
         self.emit_outhex()
         self.getaddressoflocalvar()
         self.emit_bintodecimal()
@@ -738,6 +738,13 @@ class initasm:
         self.emit.createcode("STA", "global_tickscounter_1")
         self.emit.createcode("STA", "global_tickscounter_2")
         self.emit.createcode("STA", "global_tickscounter_3")
+        # clear uptime counter, the counter itself can be used instead of tickscounter
+        self.emit.createcode("STA", "lcd_update_seconds")
+        self.emit.createcode("STA", "lcd_update_minutes")
+        self.emit.createcode("STA", "lcd_update_hours")
+        self.emit.createcode("STA", "lcd_update_days_0")
+        self.emit.createcode("STA", "lcd_update_days_1")
+        self.emit.createcode("STA", "lcd_update_statecounter")
         self.emit.createcode("RTS", name="end_irq_handler_clocktimer")
         #
         self.emit.createcode("BIT", "VIAIFR", "check for general VIA interrupts",name="irq_handler_clocktimer")
@@ -916,14 +923,6 @@ class initasm:
         self.emit.createcode("jsr","lcd_instruction")
         self.emit.createcode("lda","#%00000001","Clear display")
         self.emit.createcode("jsr","lcd_instruction")
-        # clear uptime counter
-        self.emit.createcode("LDA", "#0")
-        self.emit.createcode("STA", "lcd_update_seconds")
-        self.emit.createcode("STA", "lcd_update_minutes")
-        self.emit.createcode("STA", "lcd_update_hours")
-        self.emit.createcode("STA", "lcd_update_days_0")
-        self.emit.createcode("STA", "lcd_update_days_1")
-        self.emit.createcode("STA", "lcd_update_statecounter")
         self.emit.createcode("rts")
         # 
         self.emit.createcode("lda","#%00000010","Set 4-bit mode",name="lcd_init")
@@ -2103,6 +2102,7 @@ class initasm:
 
     def endasm(self):
         self.emit.insertinline("LABEL", "LASTBYTEINPROG", 0)
+        self.emit.insertinline(".ASCIIZ","\"ENDPROGRAM\"",0,name="endofprogram")
         self.emit.insertinline("word", "$EDFE", 0)
         self.emit.insertinline("word", "$DEC0", 0)
         self.emit.insertinline("org", "$FFFA", 0)
