@@ -290,8 +290,8 @@ class initasm:
         emit.insertinline("JMP", "__INPUT_WAIT_LOOP", 0)
 
         emit.insertinline(".ASCIIZ", "\"program terminated\"", 0, name="_MESS_TERMINATED")
-        emit.insertinline(".ASCIIZ", "\"IRQ/BRK detected\"", 0, name="_IRQ_BRK_MESSAGE")
-        emit.insertinline(".ASCIIZ", "\"System V0.1...\"", 0, name="_START_MESSAGE")
+        # emit.insertinline(".ASCIIZ", "\"IRQ/BRK detected\"", 0, name="_IRQ_BRK_MESSAGE")
+        emit.insertinline(".ASCIIZ", "\"system startet\"", 0, name="_START_MESSAGE")
         # interrupt handler entry point
         emit.insertinline("JMP", "(irq_vector)", 0,name="IRQstart")
         emit.createcode("PHA", "", "save registers", name="IRQhandler")
@@ -317,19 +317,27 @@ class initasm:
         emit.createcode("RTS", "", "", name="_lcd_start_message_rts")
 
         # former debug output for software irq
-        emit.createcode("JSR", "_OUTPUTCRLF")
-        emit.createcode("JSR", "_OUTPUTCRLF")
-        emit.createcode("LDY", "#0")
-        emit.createcode("LDA", "_IRQ_BRK_MESSAGE,Y", name="_IRQ_BRK_MESS")
-        emit.createcode("BEQ", "_end_irqbrk_mess")
-        emit.createcode("JSR", "_OUTPUTCHAR")
-        emit.createcode("INY")
-        emit.createcode("JMP", "_IRQ_BRK_MESS")
-        emit.createcode("JSR", "_OUTPUTCRLF",name="_end_irqbrk_mess")
-        emit.createcode("JMP", "wozmon")
+        # emit.createcode("JSR", "_OUTPUTCRLF")
+        # emit.createcode("JSR", "_OUTPUTCRLF")
+        # emit.createcode("LDY", "#0")
+        # emit.createcode("LDA", "_IRQ_BRK_MESSAGE,Y", name="_IRQ_BRK_MESS")
+        # emit.createcode("BEQ", "_end_irqbrk_mess")
+        # emit.createcode("JSR", "_OUTPUTCHAR")
+        # emit.createcode("INY")
+        # emit.createcode("JMP", "_IRQ_BRK_MESS")
+        # emit.createcode("JSR", "_OUTPUTCRLF",name="_end_irqbrk_mess")
+        # emit.createcode("JMP", "wozmon")
         #
-        emit.insertinline("RTI", "", 0, name="NMIstart")
-        # emit.insertinline(".ASCIIZ","\"0123456789ABCDEF\"",0,name="_HEXTRANSLATE")
+        # entry point for NMI Routine
+        emit.createcode("PHA", "", "save all registers in NMI Routine", name="NMIstart")
+        emit.createcode("PHX")
+        emit.createcode("PHY")
+        #
+        #
+        emit.createcode("PLY")
+        emit.createcode("PLX")
+        emit.createcode("PLA")
+        emit.createcode("RTI")
 
         #
         self.emit_HELPERS()
@@ -639,6 +647,16 @@ class initasm:
         #  insert char into buffer
         self.emit.createcode("LDX", "#20", "loop for waiting if register is empty")
         self.emit.createcode("LDA", "ACIASTATUS", "check bits", name="aciairqwaitforchar")
+        self.emit.createcode("TAY")
+        self.emit.createcode("AND", "#%00000100", "check for overrun error")
+        self.emit.createcode("BNE", "inbuf_exitaciairqhandler_with_overrun", "overrun error detected")
+        self.emit.createcode("TYA")
+        self.emit.createcode("AND", "#%00000010", "check for framing error")
+        self.emit.createcode("BNE", "inbuf_exitaciairqhandler_with_frameing", "framing error detected")
+        self.emit.createcode("TYA")
+        self.emit.createcode("AND", "#%000000001", "check for parity error")
+        self.emit.createcode("BNE", "inbuf_exitaciairqhandler_with_parity", "parity error detected")
+        self.emit.createcode("TYA")
         self.emit.createcode("AND", "#%00001000", "check for receiver full")
         self.emit.createcode("BNE", "acia_process_irq_char", "irq was from acia read, char is ready to read")
         self.emit.createcode("DEX", "", "decrement timeout counter, char not ready in acia")
@@ -653,8 +671,14 @@ class initasm:
         # exit handler
         self.emit.createcode("RTS", "", "", name="inbuf_exitaciairqhandlernopla")
         # signaling an timeout error during get char from acia, using at sign here, because hopefully it has a rare occurence
+        self.emit.createcode("LDA", "#'#'", "", name="inbuf_exitaciairqhandler_with_parity")
+        self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
+        self.emit.createcode("LDA", "#'%'", "", name="inbuf_exitaciairqhandler_with_overrun")
+        self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
+        self.emit.createcode("LDA", "#'$'", "", name="inbuf_exitaciairqhandler_with_frameing")
+        self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
         self.emit.createcode("LDA", "#'@'", "", name="inbuf_exitaciairqhandler_with_error")
-        self.emit.createcode("LDX", "inbuf_irqptr")
+        self.emit.createcode("LDX", "inbuf_irqptr", "load index for read buffer", name="inbuf_exitirqhandler_with_any_error")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
         self.emit.createcode("INC", "inbuf_readcounter")
