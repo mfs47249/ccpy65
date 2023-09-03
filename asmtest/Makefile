@@ -1,6 +1,6 @@
 
 ASM	= vasm6502_oldstyle
-ASMOPT	= -Fbin -wdc02 -dotdir -L test.lst
+ASMOPT	= -Fbin -wdc02 -dotdir -L test.lst 
 
 CC	= gcc
 
@@ -9,6 +9,12 @@ a.out:	test.s
 
 test.s:	../test.s
 	cp ../test.s .
+
+serialtest.s: ../serialtest.s .
+	cp ../serialtest.s .
+
+serialtest.out:	serialtest.s 
+	$(ASM) $(ASMOPT) -o serialtest.out serialtest.s
 
 show:	a.out
 	hexdump -C a.out

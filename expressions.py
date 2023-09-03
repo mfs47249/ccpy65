@@ -38,6 +38,7 @@ class anode:
             "longlong" : 0,
             "long" : 0,
             "byte" :0,
+            "type_byte" :0,
             "int" : 0,
             "type_integer" : 0,
             "type_float" : 0,

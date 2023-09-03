@@ -32,8 +32,8 @@ class initasm:
         self.programstart = programstart
         self.logger = logger
         self.emit = emit
-        self.usingwozfloat = False
-        self.kimathincluded = False
+        self.usingwozfloat = True
+        self.kimathincluded = True
         self.usingkimath = self.kimathincluded
         self.kimathzeropage = self.kimathincluded
         self.lcdenabled = True
@@ -66,8 +66,16 @@ class initasm:
         self.createvar("pointer", "type_pointer", 2, "irq_vector")
         self.createvar("pointer", "type_pointer", 2, "t1calledsubroutine")
         self.createvar("pointer", "type_pointer", 2, "irqscratchpointer")
-        self.createvar("long", "type_long", 4, "_zpirqscratch0")
-        self.createvar("long", "type_long", 4, "_zpirqscratch1")
+        # self.createvar("long", "type_long", 4, "_zpirqscratch0")
+        # self.createvar("long", "type_long", 4, "_zpirqscratch1")
+        # create global c-like errno variable of type int
+        self.create_c_global("pointer", "type_pointer", 2, "sevensegmentptr")
+
+        self.createvar("int", "type_integer", 2, "_sevensegment0")
+        self.createvar("int", "type_integer", 2, "_sevensegment1")
+        self.createvar("int", "type_integer", 2, "_sevensegment3")
+        self.createvar("byte", "type_byte", 1, "_sevenindex")
+
         if self.usingwozfloat: # if true, the wozfloat routines will be included
             stoken = stokens.addwithattributes("SIGN", "byte", ["cpuregister", "vardefinition", "type_byte"])
             emit.varstatement(stoken, "byte", "SIGN")
@@ -201,9 +209,6 @@ class initasm:
         stoken = stokens.addwithattributes("_memarea", "chararray", ["type_chararray", "vardefinition"])
         stoken.setsize(256)
         emit.varstatement(stoken, "chararray", "memarea")
-        stoken = stokens.addwithattributes("_memarea", "chararray", ["type_chararray", "vardefinition"])
-        stoken.setsize(256)
-        emit.varstatement(stoken, "chararray", "irqmemarea")
         #
         stoken = stokens.addwithattributes("_outbufacia", "chararray", ["type_chararray", "vardefinition"])
         stoken.setsize(256)
@@ -218,6 +223,9 @@ class initasm:
         self.createvar("byte", "type_byte", 1,  "inbuf_irqptr")
         self.createvar("byte", "type_byte", 1,  "inbuf_readptr")
         self.createvar("byte", "type_byte", 1,  "inbuf_readcounter")
+        #
+        # create global c-like errno variable of type int
+        self.create_c_global("int", "type_integer", 2, "errno")
         #
         # create var for uptime counter on lcd
         if self.lcdenabled:
@@ -235,9 +243,14 @@ class initasm:
         emit.insertinline("ORG", self.programstart, 0)
         emit.insertinline("SEI", "", 0, name="programstart")
         emit.insertinline("CLD", "", 0)
-        emit.insertinline("LDX", "#$FF", 0)
-        emit.insertinline("TXS", "", 0)
-        emit.insertinline("JSR", "setuserstack", 0)
+        # clear 6502 stack and set stackpointer to $ff
+        emit.createcode("LDX", "#0")
+        emit.createcode("STZ", "$100,X", "clear stack-memory", name="_init_6502_stack_memory")
+        emit.createcode("INX")
+        emit.createcode("BNE", "_init_6502_stack_memory")
+        emit.createcode("LDX", "#$FF")
+        emit.createcode("TXS", "")
+        emit.createcode("JSR", "setuserstack")
         emit.createcode("LDA", "#<IRQhandler", "load low byte of irq-startaddress")
         emit.createcode("STA", "irq_vector_0")
         emit.createcode("LDA", "#>IRQhandler", "load high byte of irq-startaddress")
@@ -258,13 +271,14 @@ class initasm:
         emit.insertinline("JSR", "init_transmittimer", 0)
         emit.insertinline("JSR", "init_aciaserial", 0)
         emit.insertinline("JSR", "init_clocktimer", 0)
+        emit.insertinline("JSR", "init_seven_segment", 0)
         # initializing VIA PA for debugging
-        emit.createcode("LDA", "#255")
-        emit.createcode("STA", "VIADDRA", "set all bits of Via PA as output")
         #
         emit.insertinline("CLI", "", 0)
+        emit.createcode("STZ", "global_errno_0")
+        emit.createcode("STZ", "global_errno_1")
         #emit.insertinline("JSR", "_lcd_start_message", 0)
-        emit.insertinline("JSR", "main", 0)
+        emit.createcode("JSR", "main", "call the c main function without any argument")
         # clear upper 32 bit of _unireg0 because _OUT_UNIREG show only the first 32 bit
         emit.createcode("LDA", "#0")
         emit.createcode("STA", "_uniregA_0")
@@ -297,12 +311,10 @@ class initasm:
         emit.createcode("PHA", "", "save registers", name="IRQhandler")
         emit.createcode("PHX")
         emit.createcode("PHY")
-        emit.createcode("LDA", "#1")
-        emit.createcode("STA", "VIAORAIRA", "set PIA Pin PA0 to 1")
         emit.insertinline("JSR", "aciairqhandler", 0)
         emit.insertinline("JSR", "irq_handler_transmittimer", 0)
         emit.insertinline("JSR", "irq_handler_clocktimer", 0)
-        emit.createcode("STZ", "VIAORAIRA", "set PIA Pin PA0 to 0")
+        emit.insertinline("JSR", "seven_segment_irq_handler", 0)
         emit.createcode("PLY")
         emit.createcode("PLX")
         emit.createcode("PLA")
@@ -315,18 +327,6 @@ class initasm:
         emit.createcode("INX")
         emit.createcode("BRA", "_lcd_start_message_loop")
         emit.createcode("RTS", "", "", name="_lcd_start_message_rts")
-
-        # former debug output for software irq
-        # emit.createcode("JSR", "_OUTPUTCRLF")
-        # emit.createcode("JSR", "_OUTPUTCRLF")
-        # emit.createcode("LDY", "#0")
-        # emit.createcode("LDA", "_IRQ_BRK_MESSAGE,Y", name="_IRQ_BRK_MESS")
-        # emit.createcode("BEQ", "_end_irqbrk_mess")
-        # emit.createcode("JSR", "_OUTPUTCHAR")
-        # emit.createcode("INY")
-        # emit.createcode("JMP", "_IRQ_BRK_MESS")
-        # emit.createcode("JSR", "_OUTPUTCRLF",name="_end_irqbrk_mess")
-        # emit.createcode("JMP", "wozmon")
         #
         # entry point for NMI Routine
         emit.createcode("PHA", "", "save all registers in NMI Routine", name="NMIstart")
@@ -346,7 +346,7 @@ class initasm:
         self.emit_OUTPUTCHAR()
         self.emit_OUT_ACCU()
         self.emit_OUT_ACCU_lcd()
-        self.setuserstackaddress(stackstart)
+        self.setuserstackaddress(varstart, stackstart)
         self.emit_outhex()
         self.getaddressoflocalvar()
         self.emit_bintodecimal()
@@ -367,6 +367,7 @@ class initasm:
         self.emit_output_memarea()
         self.emit_LCDbeneater()
         self.emit_ClockTimer()
+        self.emit_7segment()
         self.emit_AciaRoutines()
         self.emit_transmittimer()
         self.emit_transmitirqhandler()
@@ -464,11 +465,26 @@ class initasm:
             self.emit.createcode("LDA", "inbuf_readcounter", "load number of chars in readbuffer", name="_INPUT_WAIT_FOR_CHARS")
             self.emit.createcode("BEQ", "_INPUT_GOSLEEP", "if count is 0, then wait for input in buffer")
             self.emit.createcode("SEI", "", "lock interrupts, as long as we modify the buffer")
+            self.emit.createcode("DEC", "inbuf_readcounter", "take one char from the buffer")
             self.emit.createcode("LDX", "inbuf_readptr", "read pointer for read access")
-            self.emit.createcode("INC", "inbuf_readptr", "increment, will rollover when 255 is reached")
             self.emit.createcode("LDA", "global_inbufacia,X", "load char from buffer into accu")
-            self.emit.createcode("DEC", "inbuf_readcounter")
-            self.emit.createcode("CLI", "", "interrupts are now allowed")
+            self.emit.createcode("INC", "inbuf_readptr", "increment, will rollover when 255 is reached")
+            self.emit.createcode("STZ", "global_errno_0", "no error until now")
+            # check for errors in stream, the escape character will appear followed by an error code or the escape char itself
+            # if no error was detected
+            self.emit.createcode("CMP", "#$FF", "check for escape character")
+            self.emit.createcode("BNE", "_INPUT_WAIT_EXIT_NOERR")
+            # escape char is here, get the next character from the buffer
+            self.emit.createcode("DEC", "inbuf_readcounter", "take one char from the buffer")
+            self.emit.createcode("LDX", "inbuf_readptr", "read pointer for read access")
+            self.emit.createcode("LDA", "global_inbufacia,X", "load char from buffer into accu")
+            self.emit.createcode("INC", "inbuf_readptr", "increment, will rollover when 255 is reached")
+            self.emit.createcode("CMP", "#$FF", "check for next character")
+            self.emit.createcode("BEQ", "_INPUT_WAIT_EXIT_NOERR", "if char is the escape char, then this is a valid char")
+            self.emit.createcode("STA", "global_errno_0", "if not, this is an error code from the irq handler, put it in errno")
+            # this will return the error code in the accu, returnvalues are P,O,F and may be I, check errorcode in your program
+            # if this condition will happen
+            self.emit.createcode("CLI", "", "interrupts are now allowed", name="_INPUT_WAIT_EXIT_NOERR")
         self.emit.createcode("PLY")
         self.emit.createcode("PLX")
         self.emit.insertinline("RTS", "", 0)
@@ -593,6 +609,12 @@ class initasm:
         stoken.setsize(size)
         self.emit.varstatement(stoken, datatype, name)
 
+    def create_c_global(self, datatype, type_def, size, name):    
+        stoken = self.stokens.addwithattributes(name, datatype, [type_def, "vardefinition", type_def])
+        stoken.setsize(size)
+        stoken.setnamespace("global")
+        self.emit.varstatement(stoken, datatype, name)
+
     def defineVIA6522(self):
         viabaseaddress = int(0x6000)   # Base Address of VIA 6522 in Ben Eaters Breadboard-Computer
         self.emit.createcode("=", "%d" % viabaseaddress,   "Output- Inputregister - B", name="VIAORBIRB")
@@ -645,20 +667,23 @@ class initasm:
         self.emit.createcode("LDA", "#245")
         self.emit.createcode("STA", "lcd_update_statecounter", "disable lcd update for some (255-245) seconds")
         #  insert char into buffer
+        # self.emit.createcode("LDX", "#1", "loop for waiting if register is empty")
         self.emit.createcode("LDX", "#20", "loop for waiting if register is empty")
         self.emit.createcode("LDA", "ACIASTATUS", "check bits", name="aciairqwaitforchar")
-        self.emit.createcode("TAY")
-        self.emit.createcode("AND", "#%00000100", "check for overrun error")
-        self.emit.createcode("BNE", "inbuf_exitaciairqhandler_with_overrun", "overrun error detected")
-        self.emit.createcode("TYA")
-        self.emit.createcode("AND", "#%00000010", "check for framing error")
-        self.emit.createcode("BNE", "inbuf_exitaciairqhandler_with_frameing", "framing error detected")
-        self.emit.createcode("TYA")
-        self.emit.createcode("AND", "#%000000001", "check for parity error")
-        self.emit.createcode("BNE", "inbuf_exitaciairqhandler_with_parity", "parity error detected")
-        self.emit.createcode("TYA")
-        self.emit.createcode("AND", "#%00001000", "check for receiver full")
-        self.emit.createcode("BNE", "acia_process_irq_char", "irq was from acia read, char is ready to read")
+        self.emit.createcode("LSR")
+        self.emit.createcode("BCS", "inbuf_exitaciairqhandler_with_parity", "parity error detected")
+        self.emit.createcode("LSR")
+        self.emit.createcode("BCS", "inbuf_exitaciairqhandler_with_frameing", "framing error detected")
+        self.emit.createcode("LSR")
+        self.emit.createcode("BCS", "inbuf_exitaciairqhandler_with_overrun", "overrun error detected")
+        self.emit.createcode("LSR")
+        self.emit.createcode("BCS", "acia_process_irq_char", "irq was from acia read, char is ready to read")
+        self.emit.createcode("LSR", "", "jump over Transmit Data Register empty Flag, will not used here")
+        self.emit.createcode("LSR", "", "check for DCD ready")
+        self.emit.createcode("BCC", "inbuf_exitaciairqhandler_with_dcd_ready", "DCD line became ready when LOW")
+        self.emit.createcode("LSR", "", "check for DSR ready")
+        self.emit.createcode("BCC", "inbuf_exitaciairqhandler_with_dsr_ready", "DSR line became ready when LOW")
+        # at this point, we checked every bit of the status register, so the loop may be unneccesary
         self.emit.createcode("DEX", "", "decrement timeout counter, char not ready in acia")
         self.emit.createcode("BEQ", "inbuf_exitaciairqhandler_with_error", "we checked 20 times, with no char ready, something was wrong")
         self.emit.createcode("BRA", "aciairqwaitforchar", "no char in acia, jump to check again")
@@ -667,6 +692,7 @@ class initasm:
         self.emit.createcode("LDA", "ACIADATA", "get char")
         self.emit.createcode("CMP", "#$FF", "if received char is the escape char, then send them twice")
         self.emit.createcode("BNE", "inbuf_escape_char_checked")
+        self.emit.createcode("LDA", "#$FF", "load FF char into accu")
         self.emit.createcode("LDX", "inbuf_irqptr")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
@@ -678,21 +704,27 @@ class initasm:
         self.emit.createcode("RTS", "", "", name="inbuf_exitaciairqhandlernopla")
         # prepare to inject error message, using escape char #$FF followed by error codes P, for parity error,
         # F, for framing error, O, for overrun and I for spurious Interrupt (acia got an IRQ but no char was availiable)
-        self.emit.createcode("LDY", "#'P'", "", name="inbuf_exitaciairqhandler_with_parity")
+        self.emit.createcode("LDA", "#'P'", "", name="inbuf_exitaciairqhandler_with_parity")
         self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
-        self.emit.createcode("LDY", "#'O'", "", name="inbuf_exitaciairqhandler_with_overrun")
+        self.emit.createcode("LDA", "#'O'", "", name="inbuf_exitaciairqhandler_with_overrun")
         self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
-        self.emit.createcode("LDY", "#'F'", "", name="inbuf_exitaciairqhandler_with_frameing")
+        self.emit.createcode("LDA", "#'F'", "", name="inbuf_exitaciairqhandler_with_frameing")
         self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
-        self.emit.createcode("LDY", "#'I'", "", name="inbuf_exitaciairqhandler_with_error")
+        self.emit.createcode("LDA", "#'D'", "", name="inbuf_exitaciairqhandler_with_dcd_ready")
+        self.emit.createcode("RTS", "", "exit from dcd ready interrupt without any action, you can remove this line and may be you get an 'D' on your console")
+        self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
+        self.emit.createcode("LDA", "#'S'", "", name="inbuf_exitaciairqhandler_with_dsr_ready")
+        self.emit.createcode("BRA", "inbuf_exitirqhandler_with_any_error")
+        self.emit.createcode("LDA", "#'I'", "", name="inbuf_exitaciairqhandler_with_error")
         #
-        self.emit.createcode("LDX", "inbuf_irqptr", "load index for read buffer", name="inbuf_exitirqhandler_with_any_error")
+        self.emit.createcode("PHA", "", "save status code", name="inbuf_exitirqhandler_with_any_error")
+        self.emit.createcode("LDX", "inbuf_irqptr", "load index for read buffer")
         self.emit.createcode("LDA", "#$FF", "put escape char in buffer")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
         self.emit.createcode("INC", "inbuf_readcounter")
-        self.emit.createcode("TYA")
         self.emit.createcode("LDX", "inbuf_irqptr", "load index for read buffer")
+        self.emit.createcode("PLA", "", "restore status code")
         self.emit.createcode("STA", "global_inbufacia,X", "store char in buffer")
         self.emit.createcode("INC", "inbuf_irqptr")
         self.emit.createcode("INC", "inbuf_readcounter")
@@ -703,6 +735,10 @@ class initasm:
         # configure timer 2 to one shot timer mode for work around the acia6551 transmit bug
         self.emit.createcode("LDA", "VIAACR", "Put Timer 2 into One Shot Mode", name="init_transmittimer")
         self.emit.createcode("AND", "#%11011111", "Put Timer 2 into One Shot Mode")
+        #                              ++----------- 11 = T1 continuous IRQ
+        #                                +---------- 0 = T2 Timer IRQ enabled <----- must be 0 with and 0
+        #                                 +++------- 110 = shift out under PHI rate
+        #                                    ++----- 00 = disable latching for PA and PB
         self.emit.createcode("STA", "VIAACR")
         self.emit.createcode("LDA", "#%10100000", "Enable Interrupts for Timer 2")
         self.emit.createcode("STA", "VIAIER")
@@ -915,6 +951,66 @@ class initasm:
         self.emit.createcode("CLD", "", "clear decimal flag for normal operation", name="lcdcontinueuptime0")
         self.emit.createcode("RTS")
 
+    def emit_7segment(self):
+        # routines for driving a 7segment display
+        self.emit.createcode("LDA", "#$FF", "initialize VIA Port A", name="init_seven_segment")
+        self.emit.createcode("STA", "VIADDRA", "all bits are output")
+        self.emit.createcode("LDA", "VIAACR", "Put Shiftregister in mode 110")
+        self.emit.createcode("ORA", "#%00011000", "Put Shift Register in mode 110")
+        #                              ++----------- 11 = T1 continuous IRQ
+        #                                +---------- 0 = T2 Timer IRQ enabled 
+        #                                 +++------- 110 = shift out under PHI rate <--- must be 110 for this mode
+        #                                    ++----- 00 = disable latching for PA and PB
+        self.emit.createcode("STA", "VIAACR")
+        # shift register will set to shift out under control of T2, this will bes set in transmittimer init above
+        # Port A will write Data to the TTL-Latch (74LS373), CA will pulse the data into the latch over pin CLC of the latch
+        # Shift register is connected over CB1 (PHI Clock) and CB2 (SR-Data) to an 74LS164 Shift-IN Register
+        self.emit.createcode("LDA", "#%00001010", "set CA to pulse output, CB will be controled by shift register")
+        self.emit.createcode("STA", "VIAPCR")
+        #
+        self.emit.createcode("STZ", "_sevenindex")
+        self.emit.createcode("LDA", "#<lcd_update_seconds")
+        self.emit.createcode("STA", "global_sevensegmentptr_0")
+        self.emit.createcode("LDA", "#>lcd_update_seconds")
+        self.emit.createcode("STA", "global_sevensegmentptr_1")
+        self.emit.createcode("RTS")
+        # Interrupt handler starts here, this routine can be called at any time, there is no register to read, only output
+        self.emit.createcode("BYTE", "$C0,$F5,$52,$54,$65,$4C,$48,$D5,$40,$44,$41,$68,$CA,$70,$4A,$4B",name="_sevennumberconvert")
+        self.emit.createcode("BYTE", "$20,$01,$10,$02,$08,$04,$40,$80", name="_sevendigitconvert")
+        self.emit.createcode("LDA", "_sevenindex", "load index", name="seven_segment_irq_handler")
+        self.emit.createcode("CMP", "#6", "if count of displaysegment then reset to 6")
+        self.emit.createcode("BNE", "_seven_segment_irq_reset_index")
+        self.emit.createcode("LDA", "#0")
+        self.emit.createcode("STA", "_sevenindex")
+        # load data from memory in accu
+        self.emit.createcode("SEC", "", "calculating the index backwards", name="_seven_segment_irq_reset_index")
+        self.emit.createcode("SBC", "#6", "index will be inverted, counting from 5 to 0 backwards")
+        self.emit.createcode("EOR", "#%11111111")
+        self.emit.createcode("LSR", "A", "divide index by 2 to get the memory index, carry flag holds upper/lower nibble info")
+        self.emit.createcode("TAY")
+        self.emit.createcode("BCC", "_sevensegment_even_index")
+        # process the upper nibble by shifting the data times 4 to the right
+        # global_segmentptr
+        self.emit.createcode("LDA", "(global_sevensegmentptr),Y", "load data from memory buffer for all digits (8)")
+        self.emit.createcode("LSR", "A", "shift upper nibble of byte into lower nibble")
+        self.emit.createcode("LSR", "A")
+        self.emit.createcode("LSR", "A")
+        self.emit.createcode("LSR", "A")
+        self.emit.createcode("BRA", "_sevensegment_output_to_hardware")
+        # output the lower nibble, leaving as is
+        self.emit.createcode("LDA", "(global_sevensegmentptr),Y", "load data from memory", name="_sevensegment_even_index")
+        self.emit.createcode("AND", "#%00001111", "display only number 0-F ")
+        # convert and output pattern to the display hardware, digit is in accu, index is in Y-Register
+        self.emit.createcode("TAX", "", "", name="_sevensegment_output_to_hardware")
+        self.emit.createcode("LDA", "_sevennumberconvert,X", "convert into sevensegment pattern for display hex-digits 0-F")
+        self.emit.createcode("STA", "VIAORAIRA", "transfer the digit-pattern to 8-bit latch for displaying the pattern")
+        self.emit.createcode("LDY", "_sevenindex")
+        self.emit.createcode("LDA", "_sevendigitconvert,Y", "convert the indexnumber to the correct display, because order mismatch")
+        self.emit.createcode("STA", "VIASR", "transfer the correct pattern to shiftregister for selecting display number")
+        # prepare for the next display index
+        self.emit.createcode("INC", "_sevenindex")
+        self.emit.createcode("RTS")
+
     def emit_LCDbeneater(self):
         E  = "%01000000"
         RW = "%00100000"
@@ -946,7 +1042,6 @@ class initasm:
         #
         self.emit.createcode("lda","#%11111111","Set all pins on port B to output",name="configure_lcd")
         self.emit.createcode("sta","VIADDRB")
-        self.emit.createcode("STA","VIADDRA")
         # set 4 bit mode to switch communication over half a byte
         self.emit.createcode("jsr","lcd_init")
         self.emit.createcode("lda","#%00101000","Set 4-bit mode; 2-line display; 5x8 font")
@@ -1177,11 +1272,34 @@ class initasm:
         self.emit.createcode("JMP", "_prt_global_mem_loop")
         self.emit.createcode("RTS", "", "all chars printed", name="_prt_global_return")
 
-    def setuserstackaddress(self, stackstart):
+    def setuserstackaddress(self, varstart, stackstart):
         # set userstack
+        if varstart > stackstart:
+            print("correct varstart or stackstart, varstart must be less then stackstart")
+            print("varstart   was: %04X" % varstart)
+            print("stackstart was: %04X" % stackstart)
+            sys.exit(1)
+        varstarthex = "%04X" % varstart
+        stackstarthex = "%04X" % stackstart
         self.emit.insertinline("LABEL", "setuserstack", 0)
         us_stoken = self.stokens.get("_userstack")
         self.emit.assignvaluetovariable(us_stoken, "number", stackstart)
+        self.emit.createcode("LDA", "#$%s" % varstarthex[0:2])
+        self.emit.createcode("STA", "_unireg0_1")
+        self.emit.createcode("LDA", "#$%s" % varstarthex[2:4])
+        self.emit.createcode("STA", "_unireg0_0")
+        self.emit.createcode("LDY", "#0")
+        self.emit.createcode("LDA", "#0", "load zero", name="_clear_userstack_memory_loop")
+        self.emit.createcode("STA", "(_unireg0_0),Y", "clear user stack memory")
+        self.emit.createcode("INC", "_unireg0_0")
+        self.emit.createcode("BNE", "_increment_hi_byte_for_clear_userstack_loop")
+        self.emit.createcode("INC", "_unireg0_1")
+        self.emit.createcode("LDA", "_unireg0_0", "check if idx == stackstart", name="_increment_hi_byte_for_clear_userstack_loop")
+        self.emit.createcode("CMP", "_userstack_0")
+        self.emit.createcode("BNE", "_clear_userstack_memory_loop", "check if lobyte equals")
+        self.emit.createcode("LDA", "_unireg0_1")
+        self.emit.createcode("CMP", "_userstack_1")
+        self.emit.createcode("BNE", "_clear_userstack_memory_loop", "check if hibyte equals")
         self.emit.insertinline("RTS","",0)
 
     def emit_HELPERS(self):
@@ -2141,9 +2259,10 @@ class initasm:
 
     def endasm(self):
         self.emit.insertinline("LABEL", "LASTBYTEINPROG", 0)
-        self.emit.insertinline(".ASCIIZ","\"ENDPROGRAM\"",0,name="endofprogram")
+        # end marker for upload program
         self.emit.insertinline("word", "$EDFE", 0)
         self.emit.insertinline("word", "$DEC0", 0)
+        # set cpu vectors into rom
         self.emit.insertinline("org", "$FFFA", 0)
         self.emit.insertinline("LABEL", "pNMIstart", 0)
         self.emit.insertinline("word", "NMIstart", 0)

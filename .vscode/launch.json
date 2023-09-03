@@ -95,7 +95,33 @@
                      "--stackstart", "0x4000",
                      "--varstart",   "0x3000",
                      "--progstart",  "0x0200",
+                     "--outfile", "test.s",
                      "serialtest.c"
+                    ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Testprogram t4.c",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["--debug2",
+                     "-o", "test.s",
+                     "-I", "testfiles",
+                     "-I", "testfiles/expressions",
+                     "-I", "testfiles/usefulfunctions",
+                     "-I", "testfiles/programs",
+                     "-I", "testfiles/numbertests",
+                     "-I", "libfuncs/stringfunctions",
+                     "-I", "libfuncs/numberconvert",
+                     "-I", "libfuncs/memory",
+                     "-I", "libfuncs/misc",
+                     "--stackstart", "0x4000",
+                     "--varstart",   "0x3000",
+                     "--progstart",  "0x0200",
+                     "--outfile", "test.s",
+                     "t4.c"
                     ],
             "console": "integratedTerminal",
             "justMyCode": true

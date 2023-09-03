@@ -1,4 +1,5 @@
 
+
 int main(int argc, char ADDRESSPTR) {
     int retval, state;
     int chars_to_read;
@@ -7,6 +8,7 @@ int main(int argc, char ADDRESSPTR) {
     ADDRESSPTR funcptr;
     longlong timerinterval;
 
+    errno = 1;
     timerinterval = 50000;
     settimer(timerinterval);
     state = 0;
@@ -17,6 +19,9 @@ int main(int argc, char ADDRESSPTR) {
         chars_to_read = avail();
         if (chars_to_read > 0) {
             ch = getch();
+            if (ch == 'Q') {
+                return 4711;
+            }
             in = ch;
             println(in);
         }

@@ -609,7 +609,7 @@ class dotoken:
     def do_alphastatement(self, attributes):
         idname = self.t_value
         namespace = self.blocks.getactivefunctionname()
-        if self.t_linenumber == 74:
+        if self.t_linenumber == 12:
             x=0
         # foundtoken = self.stokens.get(self.t_value)
         foundtoken = self.stokens.getwithnamespace(self.t_value, namespace)
@@ -804,6 +804,7 @@ class dotoken:
             # self.blocks.debugblockstack()
             self.nexttoken()
         self.code.handlesubroutines()
+        self.code.createsubroutinetable()
         self.initasm.endasm()
 
     def close(self):

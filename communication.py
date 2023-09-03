@@ -4,6 +4,7 @@ import time
 import os
 import sys
 import argparse
+import re
 
 if os.name == 'nt':
     from serial.tools.list_ports_windows import comports
@@ -284,9 +285,13 @@ class SerialConn:
                 tosystem = "\r"
                 self.serconn.write(tosystem.encode())
                 self.serconn.flush()
-                r = self.serconn.readline()
+                r = self.serconn.read()
                 result = r.decode("ascii").strip()
-                print(result)
+                regex = re.compile("#[0-9]+>")
+                m = regex.search(result)
+                if m != None:
+                    print(m.group())
+                    result = ""
             except UnicodeDecodeError as e:
                 print("\nemptybuffer:%s" % e)
 
@@ -303,6 +308,9 @@ class SerialConn:
         datavalues = list()
         for d in data:
             datavalues.append(int(d))
+        print("Clear display")
+        # self.writedata_lf("clear")
+        # self.emptybuffer()
         print("starting transfer of data with length:%04x" % length)
         pointer = start
         count = 0
@@ -401,8 +409,7 @@ pars.add_argument("--woz", help="set wozmon monitor program for download data", 
 pars.add_argument("--fastmode", help="setting communication to fast method", action="store_true")
 pars.add_argument("--testmode", help="set specific testmode")
 pars.add_argument("--length", help="set length of data packet (usually 64")
-pars.add_argument("--device", help="setting serial device")
-pars.add_argument("--transferfile", help="transfer the file with the filename to")
+pars.add_argument("--datafile", help="set path to datafile")
 args = pars.parse_args()
 packetlength = 64
 if not args:
@@ -423,12 +430,9 @@ if args.fastmode:
     datatransfer = "fastmode"
 if args.length:
     packetlength = int(args.length)
-if args.device:
-    device = args.device
-if args.transferfile:
-    transferfile = args.transferfile
-
-if not args.transferfile:
+if args.datafile:
+    towritedata = open(args.datafile)
+else:
     print("sys.platform is:%s" % sys.platform)
     # Microsoft Windows Version of Path on my Computer (insert your path here)
     if sys.platform == "win32":
@@ -442,9 +446,7 @@ if not args.transferfile:
         towritedata = open("/Users/mf/github/ccpy65/asmtest/a.out", "rb")
     if sys.platform == "linux":
         towritedata = open("/home/mf/github/ccpy65/asmtest/a.out", "rb")
-    #
-else:
-    towritedata = open(args.transferfile, "rb")
+#
 newdata = towritedata.read()
 towritedata.close()
 length = grepcode(newdata, [0xFE, 0xED, 0xC0, 0xDE])
@@ -459,35 +461,28 @@ if not checkok:
     print("check is not ok, data is invalid")
     sys.exit(1)
 cmds = writedata.returncmds(address)
-if not args.device:
-    try:
-        # this is the windows version of my serial connection 
-        if sys.platform == "win32":
-            for port in comports():
-                print(port)
-            comm = SerialConn("COM4")
-        # this is the apple macintosh version of my serial connection
-        if sys.platform == "darwin":
-            for port in comports():
-                print(port)
-            comm = SerialConn("/dev/cu.usbserial-14210")
-        if sys.platform == "linux":
-            for port in comports():
-                print(port)
-            comm = SerialConn("/dev/ttyS0")
-        if sys.platform == "cygwin":
-            for port in comports():
-                print(port)
-            comm = SerialConn("/dev/ttyS3")
-    except:
-        print("Problems to open the serial connection, is your terminal program running?")
-        sys.exit(1)
-else:
-    print("opening port from given argument:%s" % device)
-    try:
-        comm = SerialConn(device)
-    except:
-        print("Problems opening device:%s, is your terminal program running?" % device)
+try:
+    # this is the windows version of my serial connection 
+    if sys.platform == "win32":
+        for port in comports():
+            print(port)
+        comm = SerialConn("COM4")
+    # this is the apple macintosh version of my serial connection
+    if sys.platform == "darwin":
+        for port in comports():
+            print(port)
+        comm = SerialConn("/dev/cu.usbserial-14130")
+    if sys.platform == "linux":
+        for port in comports():
+            print(port)
+        comm = SerialConn("/dev/ttyS0")
+    if sys.platform == "cygwin":
+        for port in comports():
+            print(port)
+        comm = SerialConn("/dev/ttyS3")
+except:
+    print("Problems to open the serial connection, is your terminal program running?")
+    sys.exit(1)
 if datatransfer == "fastmode":
     comm.putdata(address, length, newdata, packetlength, "+")
 elif datatransfer == "wozmode":

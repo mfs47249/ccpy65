@@ -5,10 +5,18 @@
 #include <findinstrings.c>
 #include <convert_to_bin.c>
 #include <dumpmemory.c>
+#include <printregisters.c>
+#include <printsubtable.c>
+
+// just for fun
+#include <factorial.c>
 
 void help() {
     println("du(mp) from to - dump memory from x to y");
+    println("set ad n <n> ..- set data at address ad upwards")
+    println("prtab          - print subroutine address table");
     println("ru(n) start    - run program at start");
+    println("su(b) start    - call program as subroutine at start");
     println("up(time)       - show system uptime");
     println("woz(mon)       - start wozmon");
     println("clear          - clear screen and init vt100 with ESC c");
@@ -65,7 +73,7 @@ void printuptime(long interval) {
 }
 
 int dump_memory(ADDRESSPTR cmd_line) {
-    ADDRESSPTR p, converr_ptr;
+    ADDRESSPTR p, q, converr_ptr;
     int result, startaddress, endaddress;
     byte converr;
 
@@ -78,20 +86,22 @@ int dump_memory(ADDRESSPTR cmd_line) {
         println("error converting start address");
         return 1;
     }
-    p = strtok(0);  // get second argument, endaddress
-    endaddress = hex_to_long(p, converr_ptr);
+    q = strtok(0);  // get second argument, endaddress
+    endaddress = hex_to_long(q, converr_ptr);
     if (converr) {
         println("error converting end address");
         return 1;
     }
-    // println("dump memory from:", startaddress, " to:", endaddress);
+    if (q == 0) {
+        endaddress = startaddress + 0x80;
+    }
     dumpfromto(startaddress, endaddress);
 }
 
 ADDRESSPTR jumpaddress;
 int run_program(ADDRESSPTR cmd_line) {
     ADDRESSPTR p, converr_ptr;
-    int runaddress;
+    long runaddress;
     byte converr;
 
     p = cmd_line;
@@ -99,15 +109,54 @@ int run_program(ADDRESSPTR cmd_line) {
     p = strtok(0); // get first argument
     converr_ptr = adr(converr);
     runaddress = hex_to_long(p, converr_ptr);
+    and(runaddress, 0xFFFF);
     if (converr) {
-        println("error converting program start address");
+        println();
+        println(" error converting program start address");
         return 1;
     }
-    println("\nrun address is:", runaddress);
+    if (runaddress < 0x200) {
+        println();
+        println(" runaddress must be greater then 1FF:", runaddress);
+        return 0;
+    }
+    println(" run address is:", runaddress);
     jumpaddress = runaddress;
     _JMP (global_jumpaddress);
     return 0;
 }
+
+ADDRESSPTR jsraddress;
+int jsr_program(ADDRESSPTR cmd_line) {
+    ADDRESSPTR p, converr_ptr;
+    long runaddress;
+    byte converr;
+
+    p = cmd_line;
+    p = strtok(p); // skip over "run" command
+    p = strtok(0); // get first argument
+    converr_ptr = adr(converr);
+    runaddress = hex_to_long(p, converr_ptr);
+    and(runaddress, 0xFFFF);
+    if (converr) {
+        println();
+        println(" error converting subroutine start address");
+        return 1;
+    }
+    if (runaddress < 0x200) {
+        println();
+        println(" subaddress must be greater then 1FF:", runaddress);
+        return 0;
+    }
+    println(" sub address is:", runaddress);
+    jsraddress = runaddress;
+    _JSR callsubroutine;
+    return 0;
+
+_LABEL callsubroutine;
+    _JMP (global_jsraddress);
+}
+
 
 void readbytes(ADDRESSPTR q, byte count) {
     ADDRESSPTR p;
@@ -117,15 +166,18 @@ void readbytes(ADDRESSPTR q, byte count) {
     readcount = count;
     while (readcount) {
         databyte = getch();
-        if (databyte == 0x20) { // jump over one space
+        if (databyte == ' ') { // jump over one space
             databyte = getch();
+        }
+        if (errno) {
+            // print out receive errors on lcd display, (P)arity, (F)raming, (O)verrun, (I)spur irq
+            lcddata(errno);
         }
         poke(p, databyte);
         p = p + 1;
         readcount = readcount - 1;
     }
     poke(p,0);
-    return;
 }
 
 char databuf[16];
@@ -255,6 +307,37 @@ void puttmem() {
     }
 }
 
+int setmemory(ADDRESSPTR cmdline) {
+    ADDRESSPTR p, q, st, converr_ptr;
+    byte hexbyte, converr;
+
+    converr_ptr = adr(converr);
+    p = cmdline;
+    p = strtok(p); // skip over "set" command
+    p = strtok(0); // get first argument, startaddress
+    q = hex_to_long(p, converr_ptr);
+    st = q;
+    if (converr) {
+        println("error converting start address");
+        return 1;
+    }
+    p = strtok(0); // get byte to write
+    while (p) {
+        hexbyte = hex_to_long(p, converr_ptr);
+        if (converr) {
+            println("error during byte input");
+            return 1;
+        }
+        poke(q, hexbyte);
+        q = q + 1;
+        p = strtok(0); // get byte to write
+    }
+    println();
+    dumpfromto(st, q);
+    println();
+    return 0;
+}
+
 int analyse() {
     ADDRESSPTR p, chptr, tok;
     char ch, space;
@@ -262,38 +345,66 @@ int analyse() {
     int result;
     char checkbuf[20];
 
-    println();
     notfound = 1;
     if (notfound) {
         strcpy(search_buf, "clear");
         result = findincmd();
-        if (result >= 0) {
+        if (result == 0) {
+            lcdcommand(1); // clear lcd display
             resetterminal();
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "set");
+        result = findincmd();
+        if (result == 0) {
+            setmemory(cmd_buf);
             notfound = 0;
         }
     }
     if (notfound) {
         strcpy(search_buf, "ru");
         result = findincmd();
-        if (result >= 0) {
+        if (result == 0) {
             p = adr(cmd_buf);
             run_program(p);
+            // usally, this will never come back
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "su");
+        result = findincmd();
+        if (result == 0) {
+            p = adr(cmd_buf);
+            jsr_program(p);
             notfound = 0;
         }
     }
     if (notfound) {
         strcpy(search_buf, "du");
         result = findincmd();
-        if (result >= 0) {
+        if (result == 0) {
+            println();
             p = adr(cmd_buf);
             dump_memory(p);
             notfound = 0;
         }
     }
     if (notfound) {
+        strcpy(search_buf, "prtab");
+        result = findincmd();
+        if (result == 0) {
+            println();
+            printsubtable();
+            notfound = 0;
+        }
+    }
+    if (notfound) {
         strcpy(search_buf, "woz");
         result = findincmd();
-        if (result >= 0) {
+        if (result == 0) {
             println("exit monitor to wozmon...");
             _JMP wozmonentrypoint;
         }
@@ -301,7 +412,7 @@ int analyse() {
     if (notfound) {
         strcpy(search_buf, "up");
         result = findincmd();
-        if (result >= 0) {
+        if (result == 0) {
             println();
             printuptime(timerinterval);
             notfound = 0;
@@ -310,7 +421,7 @@ int analyse() {
     if (notfound) {
         strcpy(search_buf, "help");
         result = findincmd();
-        if (result >= 0) {
+        if (result == 0) {
             help();
             println();
             notfound = 0;
@@ -319,21 +430,21 @@ int analyse() {
     if (notfound) {
         strcpy(search_buf, "exit");
         result = findincmd();
-        if (result >= 0) {
+        if (result == 0) {
             println("exit monitor...");
             return 1;
         }
     }
-    strcpy(search_buf, "");
-    strcpy(cmd_buf, "");
-    println();
+    if (notfound) {
+        println();
+    }
     return 0;
 }
-
 
 int main(int argc, char ADDRESSPTR) {
     int retval, state;
     int chars_to_read;
+    long inputs;
     byte idx;
     char inchar, ch;
     ADDRESSPTR funcptr;
@@ -344,7 +455,8 @@ int main(int argc, char ADDRESSPTR) {
     settimer(ti);
     state = 0;
     retval = 0;
-    println("\nSTART mon...:");
+    inputs = 0;
+    println("START mon...:");
     strcpy(cmd_buf, "");
     while (retval == 0) {
         chars_to_read = avail();
@@ -354,9 +466,16 @@ int main(int argc, char ADDRESSPTR) {
                 retval = 1;
             }
             if (inchar == 0x0D) {
+                inputs = inputs + 1;
                 retval = analyse();
                 strcpy(cmd_buf, "");
-
+                print("#", inputs,">");
+            }
+            if (inchar == 8) {   // Backspace pressed
+                println("buffer cleared!");
+                strcpy(cmd_buf, "");
+                print("#", inputs,">");
+                inchar = 0x0D;
             }
             if (inchar == 0x2A) { // start packet with * Symbol
                 puttmem();
@@ -368,7 +487,6 @@ int main(int argc, char ADDRESSPTR) {
                 strcpy(cmd_buf, "");
                 inchar = 0x0D;
             }
-
             if (inchar != 0xD) {
                 strcat(cmd_buf, inchar);
                 print(inchar);

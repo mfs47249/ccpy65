@@ -4,6 +4,7 @@ from storetokens import storetokens, objects
 
 from os.path import exists, join
 from argparse import ArgumentParser
+import os
 import sys
 import inspect as insp
 
@@ -21,7 +22,7 @@ class filedata:
     hexnumberset = ['$','0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','a','b','c','d','e','f','.']
     whitespace = [' ', '\t', '\a', '\n']
     specialchars = [' ','!','"','§','$','%','&','/','\\','(',')','=','?','´','`','^','°','@',',',';','.',':','-','_','{','}','[',']' ]
-
+    stringallowed = ['#', '<', '>']
 
     def __init__(self, fp, fd, debugflag=False):
         self.fp = fp
@@ -376,7 +377,7 @@ class filedata:
     def processstartstring(self):
         self.lasttoken = ""
         achar = self.getch()
-        while achar != '"' and achar in self.alphaset + self.numberset + self.specialchars:
+        while achar != '"' and achar in self.alphaset + self.numberset + self.specialchars + self.stringallowed:
             self.lasttoken += achar
             achar = self.getch()
         tokens.addtoken(self.lasttoken, "type_stringconst", self.linenumber)
@@ -645,3 +646,9 @@ if __name__ == "__main__":
     tokens.emit(instance.getvarstart(), instance.getprogstart(), instance.getstackstart(), instance.getoutfilepath())
     tokens.close()
     # tokens.listalluserdefined()
+    if False:
+        workingdirectory = os.getcwd()
+        os.chdir("asmtest")
+        workingdirectory = os.getcwd()
+        print("new working dir is:%s" % workingdirectory)
+        domake = ["/usr/bin/make"]

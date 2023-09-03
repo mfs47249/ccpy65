@@ -12,17 +12,15 @@ void dumpfromto(ADDRESSPTR start, ADDRESSPTR end) {
         index = 0;
         b = peek(q);
         while (index < 8) {
-            q = q + 1;
-            b = peek(q);
             print(b," ");
+            q = q + 1;
             index = index + 1;
+            b = peek(q);
         }
         print(" ");
         index = 0;
-        b = peek(p);
+        ch = peek(p);
         while (index < 8) {
-            p = p + 1;
-            ch = peek(p);
             if (ch < ' ') {
                 ch = '.';
             }
@@ -30,7 +28,9 @@ void dumpfromto(ADDRESSPTR start, ADDRESSPTR end) {
                 ch = '.';
             }
             print(ch);
+            p = p + 1;
             index = index + 1;
+            ch = peek(p);
         }
         println();
         ci = avail();
