@@ -226,6 +226,8 @@ class codeemitter:
     createsubroutine = False
     actualsubroutine = None
     createvirtsub = True
+    subroutinenames = []
+
 
     def __init__(self, assemblerpath, stokens, blocks, log):
         self.stokens = stokens
@@ -374,6 +376,9 @@ class codeemitter:
     def handlesubroutines(self):
         for subroutine in self.subroutinebuffer:
             print("Append subroutinename:%s" % subroutine.getname())
+            # the following line will add the name of the automatically generated subroutine before the code
+            # this was only an experiment for testing something like an runtime linker...
+            # self.createcode("ASCIIZ", "\"%s\"" % subroutine.getname())
             for oneline in subroutine.getlist():
                 self.assemblerout.write(oneline.getcodeline() + '\n')
 
@@ -607,6 +612,8 @@ class codeemitter:
         # return registers back from stack
 
     def varstatement(self, stoken, t_type, t_value, isinarguments=False):
+        if t_value == "errors":
+            x = 0
         attributes = stoken.getattributes()
         attributhash = stoken.getattributehash()
         iscpureg = False
@@ -2520,27 +2527,34 @@ class codeemitter:
             return
         if sourcenamespace == "global" and destnamespace == "global": # global global
             self.createcode("NOP", "", "COPYVAR GLOBAL GLOBAL")
-            if dest_size != source_size:
-                print("SRC:%s, DST:%s, sourcesize <> destsize (%d,%d)" % (sourcevarname, destvarname, source_size, dest_size))
-                sys.exit(1)
-            copysize = 0
             if dest_size < source_size:
-                copysize = source_size
+                for x in range(dest_size):
+                    srcvar = "%s_%d" % (sourcevarname, x)
+                    dstvar = "%s_%d" % (destvarname, x)
+                    self.createcode("LDA", srcvar)
+                    self.createcode("STA", dstvar)
+            elif dest_size > source_size:
+                print("SRC:%s, DST:%s, sourcesize < destsize (%d,%d)" % (sourcevarname, destvarname, source_size, dest_size))
+                sys.exit(1)
             else:
-                copysize = dest_size
-            for x in range(copysize):
-                if sourceisregister:
-                    srcregister = "%s_%d" % (sourcevarname, x)
-                    srcregister = registerconvert[srcregister]
-                    self.createcode("LDA", srcregister)
+                copysize = 0
+                if dest_size < source_size:
+                    copysize = source_size
                 else:
-                    self.createcode("LDA", "%s,%d" % (sourcevarname, x))
-                if destisregister:
-                    destregister = "%s_%d" % (destvarname, x)
-                    destregister = registerconvert[destregister]
-                    self.createcode("STA", destregister)
-                else:
-                    self.createcode("STA", "%s_%d" % (destvarname, x))
+                    copysize = dest_size
+                for x in range(copysize):
+                    if sourceisregister:
+                        srcregister = "%s_%d" % (sourcevarname, x)
+                        srcregister = registerconvert[srcregister]
+                        self.createcode("LDA", srcregister)
+                    else:
+                        self.createcode("LDA", "%s,%d" % (sourcevarname, x))
+                    if destisregister:
+                        destregister = "%s_%d" % (destvarname, x)
+                        destregister = registerconvert[destregister]
+                        self.createcode("STA", destregister)
+                    else:
+                        self.createcode("STA", "%s_%d" % (destvarname, x))
             
         if sourcenamespace == "global" and destnamespace != "global": # global local
             self.createcode("NOP", "", "COPYVAR GLOBAL LOKAL src:%s, dest:%s, srcsize:%d, destsize:%s" % (sourcevarname, destvarname, source_size, dest_size))
@@ -3399,19 +3413,36 @@ class codeemitter:
             elif self.checkhash(source_attr, "type_long") or self.checkhash(source_attr, "type_longlong"):
                 outloop_long = self.randomword(8)
                 if cpuregister:
-                    if functionname == "printhex" or functionname == "printlnhex":
-                        for idx in [7,6,5,4,3,2,1,0]:
-                            realregname = registerconvert[sourcename + '_' + str(idx)]
-                            self.createcode("LDA", realregname)
-                            self.createcode("JSR", "_OUTHEX")
+                    if sourcename == "_unireg0":
+                        self.createcode("JSR", "_OUT_UNIREG0")
+                    elif sourcename == "_unireg1":
+                        self.createcode("JSR", "_OUT_UNIREG1")
+                    elif sourcename == "_unireg2":
+                        self.createcode("JSR", "_OUT_UNIREG2")
+                    elif sourcename == "_unireg3":
+                        self.createcode("JSR", "_OUT_UNIREG3")
+                    elif sourcename == "_unireg4":
+                        self.createcode("JSR", "_OUT_UNIREG4")
+                    elif sourcename == "_unireg5":
+                        self.createcode("JSR", "_OUT_UNIREG5")
+                    elif sourcename == "_unireg6":
+                        self.createcode("JSR", "_OUT_UNIREG6")
+                    elif sourcename == "_unireg7":
+                        self.createcode("JSR", "_OUT_UNIREG7")
                     else:
+                        print("unknown cpu register for print or println, register was:" % sourcename)
+                        sys.exit(1)
+                    #if functionname == "printhex" or functionname == "printlnhex":
+                    #    for idx in [7,6,5,4,3,2,1,0]:
+                    #        realregname = registerconvert[sourcename + '_' + str(idx)]
+                    #        self.createcode("LDA", realregname)
+                    #        self.createcode("JSR", "_OUTHEX")
+                    if False:
                         self.createcode("LDX", "#7")
                         self.createcode("LDA", "%s,X" % sourcename, name=outloop_long)
                         self.createcode("STA", "%s,X" % "_unireg0,X")
                         self.createcode("DEX")
                         self.createcode("BPL", outloop_long)
-                        # self.createcode("LDA", "#0")
-                        # self.createcode("STA", "global_memarea", "clear memory, if there is something from the prev. output")
                         self.createcode("JSR", "_UNIREG0_DECIMAL")
                         self.createcode("JSR", "_prt_global_memarea")
 
@@ -3442,12 +3473,18 @@ class codeemitter:
                     self.createcode("LDA", sourcename + '_0')
                     self.createcode("JSR", "_OUTHEX")
                 else:
-                    self.createcode("LDY", "#%s_1" % sourcenamewithnamespace, "internal write called with int or pointer")
-                    self.createcode("LDA", "(%s),Y" % frame0)
-                    self.createcode("JSR", "_OUTHEX", "call write a hex byte")
-                    self.createcode("DEY")
-                    self.createcode("LDA", "(%s),Y" % frame0)
-                    self.createcode("JSR", "_OUTHEX", "call write a hex byte")
+                    if sourcenamespace == "global":
+                        self.createcode("LDA", "%s_1" % sourcenamewithnamespace, "internal write with global int or pointer")
+                        self.createcode("JSR", "_OUTHEX")
+                        self.createcode("LDA", "%s_0" % sourcenamewithnamespace, "internal write with global int or pointer")
+                        self.createcode("JSR", "_OUTHEX")
+                    else:
+                        self.createcode("LDY", "#%s_1" % sourcenamewithnamespace, "internal write called with int or pointer")
+                        self.createcode("LDA", "(%s),Y" % frame0)
+                        self.createcode("JSR", "_OUTHEX", "call write a hex byte")
+                        self.createcode("DEY")
+                        self.createcode("LDA", "(%s),Y" % frame0)
+                        self.createcode("JSR", "_OUTHEX", "call write a hex byte")
             elif self.checkhash(source_attr, "type_integer_bcd"):
                 self.createcode("LDY", "#%s" % sourcenamewithnamespace, "internal write called with int or pointer")
                 self.createcode("LDA", "(%s),Y" % frame0)
@@ -3775,7 +3812,7 @@ class codeemitter:
                 print("datatype not valid in internal function %s(), datatype was:%s" % (functionname, source_attr))
                 sys.exit(1)
 
-    # gettimer, _getstack6502, peek, poke, adr
+    # gettimer, settimer, _getstack6502, peek, poke, adr
     def intfunc_adr(self, functionobj, arglist, line=0):
         debug = False
         functionname = functionobj.getname()
@@ -3808,6 +3845,7 @@ class codeemitter:
             sourcetype = sourcestok.gettype()
             source_attr = sourcestok.getattributehash()
             source_name = sourcestok.getname()
+            source_value = sourcestok.getvalue()
         if functionname == "poke":
             arg = arglist[1]
             if isinstance(arg, list):
@@ -3856,11 +3894,12 @@ class codeemitter:
                 idx += 1
                 self.createcode("STA", "%s_%d" % (destvarname, idx))
             elif sourcetype == "type_stringconst":
+                # type_stringconst will be interpreted as an assembler object
                 idx = 0
-                self.createcode("LDA", "#<%s" % sourcevarname, "adr(source:" + sourcevarname + ") dest:" + destvarname)
-                self.createcode("STA", "%s_%d" % (destvarname, idx), "ADR handling, stringaddress to register, load lobyte of address")
+                self.createcode("LDA", "#<%s" % source_value, "adr(source:" + source_value + ") dest:" + destvarname)
+                self.createcode("STA", "%s_%d" % (destvarname, idx), "load lo-byte address for assembler object")
                 idx += 1
-                self.createcode("LDA", "#>%s" % sourcevarname, "load hi-byte address for string constant")
+                self.createcode("LDA", "#>%s" % source_value, "load hi-byte address for assembler object")
                 self.createcode("STA", "%s_%d" % (destvarname, idx))
                 idx += 1
                 self.createcode("LDA", "#0")
@@ -3954,7 +3993,13 @@ class codeemitter:
                 self.createcode("STA", "_zpscratch_1", "save for indirect access")
                 self.createcode("LDY", "#0")
                 self.createcode("LDA", "(_zpscratch),Y")
-                self.createcode("STA", "%s_0" % destvarname, "usally in _unireg0") 
+                self.createcode("STA", "%s_0" % destvarname, "usally in _unireg0")
+                if destsize == 2:
+                    self.createcode("STZ", "%s_1" % destvarname, "clear upper byte of an int or address var")
+                elif destsize > 3:
+                    self.createcode("STZ", "%s_1" % destvarname, "clear upper byte of an long var")
+                    self.createcode("STZ", "%s_2" % destvarname, "clear upper byte of an long var")
+                    self.createcode("STZ", "%s_3" % destvarname, "clear upper byte of an long var")
         elif functionname == "poke":
             if sourcetype == "int" or sourcetype == "long" or sourcetype == "longlong" or sourcetype == "ADDRESSPTR":
                 if sourcetype_2 == "byte" or sourcetype_2 == "int" or sourcetype_2 == "char":
@@ -4116,9 +4161,13 @@ class codeemitter:
                 self.createcode("LDA", "#%s" % value)
                 self.createcode("JSR", "print_lcdchar")
             elif argumenttype == "var":
-                self.createcode("LDY","#%s" % sourcevarname)
-                self.createcode("LDA","(%s),Y" % frame0)
-                self.createcode("JSR", "print_lcdchar")
+                if sourcenamespace == "global":
+                    self.createcode("LDA", "%s_0" % sourcevarname)
+                    self.createcode("JSR", "print_lcdchar")
+                else:
+                    self.createcode("LDY","#%s" % sourcevarname)
+                    self.createcode("LDA","(%s),Y" % frame0)
+                    self.createcode("JSR", "print_lcdchar")
             else:
                 print("internal function %s() must be called with const or var" % functionname)
         elif functionname == "lcdstring":
@@ -4564,6 +4613,15 @@ class codeemitter:
                     self.createcode("STA", "kima_resh")
                     self.createcode("JSR", "kima_ustres")
 
+    def createsubroutinetable(self):
+        self.createcode("WORD", 0x05B1, "Biosfood, for finding this table: 0xB105F00D")
+        self.createcode("WORD", 0x0DF0, "see: https://en.wikipedia.org/wiki/Hexspeak")
+        self.createlabel("subroutinetable")
+        for subname in self.subroutinenames:
+            self.createcode("ASCIIZ", "\"%s\"" % subname)
+            self.createcode("WORD", subname)
+        self.createcode("WORD", 0xACF1, "signal end of table")
+
     def startfunctionarguments(self, stoken, name, value, attributes):
         if self.opset6502_save_register:
             self.createcode("PHA", "", "---STARTFUNCTIONARGUMENTS retval:%s  funcname:%s with %s" % (name,value,attribstr), name=value)
@@ -4572,6 +4630,8 @@ class codeemitter:
             self.createcode("TYA", "", "store Register Y to Accu")
             self.createcode("PHA", "", "store accu to stack")
         else:
+            self.subroutinenames.append(value)
+            # self.createcode("ASCIIZ", "\"%s\"" % value)
             self.createcode("", "", "---STARTFUNCTIONARGUMENTS retval:%s  funcname:%s" % (name,value), name=value)
         if False:
             self.createcode("LDA", "_userstack_0", "Load User-Stack lo byte")
