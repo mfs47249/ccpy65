@@ -8,11 +8,11 @@ void dumpfromto(ADDRESSPTR start, ADDRESSPTR end) {
     endaddress = end;
     while (p < endaddress) {
         q = p;
-        print(q, ": ");
+        printhex(q, ": ");
         index = 0;
         b = peek(q);
         while (index < 8) {
-            print(b," ");
+            printhex(b," ");
             q = q + 1;
             index = index + 1;
             b = peek(q);

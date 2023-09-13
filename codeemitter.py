@@ -3335,7 +3335,7 @@ class codeemitter:
         else:
             print("not implementet for data type: %s" % source_attr)
             sys.exit(1)
-            
+    # print, println   
     def intfunc_print(self, functionobj, arglist, line=0):
         functionname = functionobj.getname()
         functiondata = functionobj.getfuncdata()
@@ -3432,21 +3432,7 @@ class codeemitter:
                     else:
                         print("unknown cpu register for print or println, register was:" % sourcename)
                         sys.exit(1)
-                    #if functionname == "printhex" or functionname == "printlnhex":
-                    #    for idx in [7,6,5,4,3,2,1,0]:
-                    #        realregname = registerconvert[sourcename + '_' + str(idx)]
-                    #        self.createcode("LDA", realregname)
-                    #        self.createcode("JSR", "_OUTHEX")
-                    if False:
-                        self.createcode("LDX", "#7")
-                        self.createcode("LDA", "%s,X" % sourcename, name=outloop_long)
-                        self.createcode("STA", "%s,X" % "_unireg0,X")
-                        self.createcode("DEX")
-                        self.createcode("BPL", outloop_long)
-                        self.createcode("JSR", "_UNIREG0_DECIMAL")
-                        self.createcode("JSR", "_prt_global_memarea")
-
-                else:
+                else: # long and longlong normal variables
                     if functionname == "printhex" or functionname == "printlnhex":
                         self.createcode("LDY", "#%s+%d" % (sourcenamewithnamespace, sourcesize-1), "internal write called with long var")
                         self.createcode("LDX", "#%d" % (sourcesize - 1))
@@ -3463,6 +3449,12 @@ class codeemitter:
                         self.createcode("DEY")
                         self.createcode("DEX")
                         self.createcode("BPL", outloop_long)
+                        if sourcesize == 4:
+                            self.createcode("LDA", "#0")
+                            self.createcode("STA", "_uniregA_0")
+                            self.createcode("STA", "_uniregA_1")
+                            self.createcode("STA", "_uniregA_2")
+                            self.createcode("STA", "_uniregA_3")
                         self.createcode("JSR", "_UNIREG0_DECIMAL")
                         self.createcode("JSR", "_prt_global_memarea")
             # integer
@@ -3473,18 +3465,41 @@ class codeemitter:
                     self.createcode("LDA", sourcename + '_0')
                     self.createcode("JSR", "_OUTHEX")
                 else:
-                    if sourcenamespace == "global":
-                        self.createcode("LDA", "%s_1" % sourcenamewithnamespace, "internal write with global int or pointer")
-                        self.createcode("JSR", "_OUTHEX")
-                        self.createcode("LDA", "%s_0" % sourcenamewithnamespace, "internal write with global int or pointer")
-                        self.createcode("JSR", "_OUTHEX")
+                    if functionname == "printhex" or functionname == "printlnhex":
+                        if sourcenamespace == "global":
+                            self.createcode("LDA", "%s_1" % sourcenamewithnamespace, "internal write with global int or pointer")
+                            self.createcode("JSR", "_OUTHEX")
+                            self.createcode("LDA", "%s_0" % sourcenamewithnamespace, "internal write with global int or pointer")
+                            self.createcode("JSR", "_OUTHEX")
+                        else:
+                            self.createcode("LDY", "#%s_1" % sourcenamewithnamespace, "internal write called with int or pointer")
+                            self.createcode("LDA", "(%s),Y" % frame0)
+                            self.createcode("JSR", "_OUTHEX", "call write a hex byte")
+                            self.createcode("DEY")
+                            self.createcode("LDA", "(%s),Y" % frame0)
+                            self.createcode("JSR", "_OUTHEX", "call write a hex byte")
                     else:
-                        self.createcode("LDY", "#%s_1" % sourcenamewithnamespace, "internal write called with int or pointer")
-                        self.createcode("LDA", "(%s),Y" % frame0)
-                        self.createcode("JSR", "_OUTHEX", "call write a hex byte")
-                        self.createcode("DEY")
-                        self.createcode("LDA", "(%s),Y" % frame0)
-                        self.createcode("JSR", "_OUTHEX", "call write a hex byte")
+                        if sourcenamespace == "global":
+                            self.createcode("LDA", "%s_1" % sourcenamewithnamespace, "internal write with global int or pointer")
+                            self.createcode("STA", "_unireg0_1")
+                            self.createcode("LDA", "%s_0" % sourcenamewithnamespace, "internal write with global int or pointer")
+                            self.createcode("STA", "_unireg0_0")
+                        else:
+                            self.createcode("LDY", "#%s_1" % sourcenamewithnamespace, "internal write called with int or pointer")
+                            self.createcode("LDA", "(%s),Y" % frame0)
+                            self.createcode("STA", "_unireg0_1", "call write a hex byte")
+                            self.createcode("DEY")
+                            self.createcode("LDA", "(%s),Y" % frame0)
+                            self.createcode("STA", "_unireg0_0", "call write a hex byte")
+                        self.createcode("LDA", "#0")
+                        self.createcode("STA", "_unireg0_2")
+                        self.createcode("STA", "_unireg0_3")
+                        self.createcode("STA", "_uniregA_0")
+                        self.createcode("STA", "_uniregA_1")
+                        self.createcode("STA", "_uniregA_2")
+                        self.createcode("STA", "_uniregA_3")
+                        self.createcode("JSR", "_UNIREG0_DECIMAL")
+                        self.createcode("JSR", "_prt_global_memarea")
             elif self.checkhash(source_attr, "type_integer_bcd"):
                 self.createcode("LDY", "#%s" % sourcenamewithnamespace, "internal write called with int or pointer")
                 self.createcode("LDA", "(%s),Y" % frame0)
@@ -4769,15 +4784,33 @@ class codeemitter:
     def do_afterif(self, ifobject):
         internlabel = ifobject.getname() + ''.join(random.choice(string.ascii_lowercase) for i in range(4))
         doafteriflabel = "%s_%s" % (internlabel, ''.join(random.choice(string.ascii_lowercase) for i in range(4)))
+        enfofifelselabel = "%s_%s" % (internlabel, ''.join(random.choice(string.ascii_lowercase) for i in range(4)))
         ifobject.setfuncdata(doafteriflabel)
+        ifobject.setfuncdata2(enfofifelselabel)
         self.createcode("LDA", "_unireg0_0", "do_afterif() load result from if from unireg0")
-        self.createcode("BNE", internlabel)
-        self.createcode("JMP", doafteriflabel)
+        self.createcode("BNE", internlabel) # internlabel will be the beginning of the if-branch (if (true) )
+        self.createcode("JMP", doafteriflabel) # doafteriflabel will be behind the if-branch (expression is false)
+        # doafteriflabel is end of if block, if we have an else branch, this is the beginning of the else branch
         self.createcode("", "","do_afterif",  name=internlabel)
 
     def end_afterif(self, ifobject):
         doafteriflabel = ifobject.getfuncdata()
-        self.createcode("NOP", "", "end do_afterif()", name=doafteriflabel)
+        self.createcode("NOP", "", "end_afterif(), only called when there is no else-branch in if-stmt", name=doafteriflabel)
+
+    def do_afterelse(self, ifobject):
+        # here is the end of the if brachch, we jump over the else-branch
+        enfofifelselabel = ifobject.getfuncdata2()
+        doafteriflabel = ifobject.getfuncdata()
+        self.createcode("JMP", enfofifelselabel, "do_afterelse(), jump over the else branch")
+        # if else follows the if branch, from here is code for doafteriflabel which is the else-branch
+        self.createcode("NOP", "", "do_afterelse(), start of else block", name=doafteriflabel)
+        print("do_afterelse, start of else block")
+
+    def end_afterelse(self, ifobject):
+        # this is the enf of the else-branch, from here up, there is code 
+        enfofifelselabel = ifobject.getfuncdata2()
+        self.createcode("NOP", "", "end_afterelse(), this is the end of the else-branch", name=enfofifelselabel)
+        print("end_afterelse, end of else block")
 
     def do_whileexpression(self):
         namespace = self.blocks.getactivefunctionname()

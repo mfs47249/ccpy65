@@ -29,6 +29,14 @@ class initasm:
     programstart = 0x0200
 
     def __init__(self, logger, emit, stokens, varstart, programstart, stackstart):
+        self.modelldescription = "michaels_first_pcb"
+        self.lcdenabled = False
+        # for the breadboardcomputer, we can set LCD to True, because it has one, if not set it to False
+        # self.modelldescription = "beneater_breadboard"
+        # self.lcdenabled = False
+        self.sevensegmentenabled = True
+        #
+        #
         self.programstart = programstart
         self.logger = logger
         self.emit = emit
@@ -36,7 +44,6 @@ class initasm:
         self.kimathincluded = True
         self.usingkimath = self.kimathincluded
         self.kimathzeropage = self.kimathincluded
-        self.lcdenabled = True
         self.aciaenabled = True
         self.emulatorenabled = False
         self.stokens = stokens
@@ -228,7 +235,7 @@ class initasm:
         self.create_c_global("int", "type_integer", 2, "errno")
         #
         # create var for uptime counter on lcd
-        if self.lcdenabled:
+        if self.lcdenabled or self.sevensegmentenabled:
             self.createvar("byte", "type_byte", 1,  "lcd_update_statecounter")
             self.createvar("byte", "type_byte", 1,  "lcd_update_ticks")
             self.createvar("byte", "type_byte", 1,  "lcd_update_seconds")
@@ -241,6 +248,8 @@ class initasm:
         #
         # start program
         emit.insertinline("ORG", self.programstart, 0)
+        emit.createcode("BRA", "programstart")
+        emit.createcode("WORD", "subroutinetable")
         emit.insertinline("SEI", "", 0, name="programstart")
         emit.insertinline("CLD", "", 0)
         # clear 6502 stack and set stackpointer to $ff
@@ -365,7 +374,8 @@ class initasm:
         self.emit_decimal()
         # self.emit_decimal_only16bit() works, but too slow for using inside an interrupt handler, needs 2.5ms
         self.emit_output_memarea()
-        self.emit_LCDbeneater()
+        if self.lcdenabled:
+            self.emit_LCDbeneater()
         self.emit_ClockTimer()
         self.emit_7segment()
         self.emit_AciaRoutines()
@@ -616,30 +626,36 @@ class initasm:
         self.emit.varstatement(stoken, datatype, name)
 
     def defineVIA6522(self):
-        viabaseaddress = int(0x6000)   # Base Address of VIA 6522 in Ben Eaters Breadboard-Computer
-        self.emit.createcode("=", "%d" % viabaseaddress,   "Output- Inputregister - B", name="VIAORBIRB")
-        self.emit.createcode("=", "%d" % (viabaseaddress+1), "Output- Inputregister - A", name="VIAORAIRA")
-        self.emit.createcode("=", "%d" % (viabaseaddress+2), "Data Direction Register B", name="VIADDRB")
-        self.emit.createcode("=", "%d" % (viabaseaddress+3), "Data Direction Register A", name="VIADDRA")
-        self.emit.createcode("=", "%d" % (viabaseaddress+4), "Timer 1 Low Latches / Timer 1 Low Order Counter", name="VIAT1CL")
-        self.emit.createcode("=", "%d" % (viabaseaddress+5), "Timer 1 High Order Counter", name="VIAT1CH")
-        self.emit.createcode("=", "%d" % (viabaseaddress+6), "Timer 1 Low Order Latches", name="VIAT1LL")
-        self.emit.createcode("=", "%d" % (viabaseaddress+7), "Timer 1 High Order Latches", name="VIAT1LH")
-        self.emit.createcode("=", "%d" % (viabaseaddress+8), "Timer 2 Low Latches / Timer 1 Low Order Counter", name="VIAT2CL")
-        self.emit.createcode("=", "%d" % (viabaseaddress+9), "Timer 2 High Order Counter", name="VIAT2CH")
-        self.emit.createcode("=", "%d" % (viabaseaddress+10), "Shift Register", name="VIASR")
-        self.emit.createcode("=", "%d" % (viabaseaddress+11), "Auxililary Control Register", name="VIAACR")
-        self.emit.createcode("=", "%d" % (viabaseaddress+12), "Peripheral Control Register", name="VIAPCR")
-        self.emit.createcode("=", "%d" % (viabaseaddress+13), "Interrupt Flag Register", name="VIAIFR")
-        self.emit.createcode("=", "%d" % (viabaseaddress+14), "Interrupt Enable Register", name="VIAIER")
-        self.emit.createcode("=", "%d" % (viabaseaddress+15), "Output- Inputregister - A No Handshake", name="VIAORAIRANH")
+        if self.modelldescription == "beneater_breadboard":
+            viabaseaddress = int(0x6000) # Base Address of VIA 6522 in Ben Eaters Breadboard-Computer
+        if self.modelldescription == "michaels_first_pcb":
+            viabaseaddress = int(0x7800)
+        self.emit.createcode("=", "$%04X" % viabaseaddress,   "Output- Inputregister - B", name="VIAORBIRB")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+1), "Output- Inputregister - A", name="VIAORAIRA")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+2), "Data Direction Register B", name="VIADDRB")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+3), "Data Direction Register A", name="VIADDRA")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+4), "Timer 1 Low Latches / Timer 1 Low Order Counter", name="VIAT1CL")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+5), "Timer 1 High Order Counter", name="VIAT1CH")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+6), "Timer 1 Low Order Latches", name="VIAT1LL")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+7), "Timer 1 High Order Latches", name="VIAT1LH")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+8), "Timer 2 Low Latches / Timer 1 Low Order Counter", name="VIAT2CL")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+9), "Timer 2 High Order Counter", name="VIAT2CH")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+10), "Shift Register", name="VIASR")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+11), "Auxililary Control Register", name="VIAACR")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+12), "Peripheral Control Register", name="VIAPCR")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+13), "Interrupt Flag Register", name="VIAIFR")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+14), "Interrupt Enable Register", name="VIAIER")
+        self.emit.createcode("=", "$%04X" % (viabaseaddress+15), "Output- Inputregister - A No Handshake", name="VIAORAIRANH")
 
     def defineACIA6551(self):
-        aciabaseaddress = int(0x5000)
-        self.emit.createcode("=", "%d" % aciabaseaddress,   "Output- Inputregister", name="ACIADATA")
-        self.emit.createcode("=", "%d" % (aciabaseaddress+1),   "Status Register",     name="ACIASTATUS")
-        self.emit.createcode("=", "%d" % (aciabaseaddress+2),   "Command Register",    name="ACIACOMMAND")
-        self.emit.createcode("=", "%d" % (aciabaseaddress+3),   "Control Register",    name="ACIACONTROL")
+        if self.modelldescription == "beneater_breadboard":
+            aciabaseaddress = int(0x5000)
+        if self.modelldescription == "michaels_first_pcb":
+            aciabaseaddress = int(0x7820)
+        self.emit.createcode("=", "$%04X" % aciabaseaddress,   "Output- Inputregister", name="ACIADATA")
+        self.emit.createcode("=", "$%04X" % (aciabaseaddress+1),   "Status Register",     name="ACIASTATUS")
+        self.emit.createcode("=", "$%04X" % (aciabaseaddress+2),   "Command Register",    name="ACIACOMMAND")
+        self.emit.createcode("=", "$%04X" % (aciabaseaddress+3),   "Control Register",    name="ACIACONTROL")
 
     def emit_AciaRoutines(self):
         # init ACIA
@@ -829,19 +845,21 @@ class initasm:
         self.emit.createcode("BVC", "end_irq_handler_clocktimer", "branch, if bit 6 is 0, no irq from timer 1")
         self.emit.createcode("LDA", "VIAT1CL", "reset interrupt flag")
         self.emit.createcode("LDA", "VIAT1CH")
+        # calculate uptime for the lcd-display and the LED-Display, the system can run without the led but not without the lcd
+        # because it will wait for the lcd forever
+        self.emit.createcode("LDA", "lcd_update_ticks", "load lowest tick counter, for check for 100 * 10ms")
+        self.emit.createcode("CMP", "#100", "check for one second gone, only valid if tickrate is 10ms")
+        self.emit.createcode("BNE", "irq_handler_clocktimer_do_normal")
+        self.emit.createcode("JSR", "lcd_uptime_counter", "calculate uptime in decimal")
+        self.emit.createcode("STZ", "lcd_update_ticks", "set ticks counter back to zero")
+        self.emit.createcode("INC", "lcd_update_ticks", "increment ticks counter", name= "irq_handler_clocktimer_do_normal")
         if self.lcdenabled:
-            self.emit.createcode("LDA", "lcd_update_ticks", "load lowest tick counter, for check for 100 * 10ms")
-            self.emit.createcode("CMP", "#100", "check for one second gone, only valid if tickrate is 10ms")
-            self.emit.createcode("BNE", "irq_handler_clocktimer_do_normal")
-            self.emit.createcode("JSR", "lcd_uptime_counter", "display uptime on lcd")
-            self.emit.createcode("INC", "lcd_update_statecounter", "inc statemachine")
             #
-            self.emit.createcode("STZ", "lcd_update_ticks", "set ticks counter back to zero", name="irq_handler_clocktimer_dont_update")
-            self.emit.createcode("INC", "lcd_update_ticks", "increment ticks counter", name= "irq_handler_clocktimer_do_normal")
             # print uptime on lcd, we have to split writing the elements into pices because writing the whole
             # string take 2ms, this is to much for serial communication with 19200 baud. we lost receiving chars.
             # we build a state machine and write the string in 8 pices, every tick (every 10 ms), writing 
             # the whole string takes ca. 80ms
+            self.emit.createcode("INC", "lcd_update_statecounter", "inc statemachine")
             self.emit.createcode("LDA", "lcd_update_statecounter", "if state is 0, skip the whole part")
             self.emit.createcode("BEQ", "irq_handler_clocktimer_do_ticks", "if state is none, then do normal operation")
             self.emit.createcode("BMI", "irq_handler_clocktimer_do_ticks", "if negative, then also skip")
@@ -950,6 +968,10 @@ class initasm:
         self.emit.createcode("STA", "lcd_update_days_1")
         self.emit.createcode("CLD", "", "clear decimal flag for normal operation", name="lcdcontinueuptime0")
         self.emit.createcode("RTS")
+        # dummys for lcd routines
+        if not self.lcdenabled:
+            self.emit.createcode("", "", "Dummy Label for lcd_instruction and print_lcdchar", name="print_lcdchar")
+            self.emit.createcode("RTS", "", "Dummy Subroutine for the above routines", name="lcd_instruction")
 
     def emit_7segment(self):
         # routines for driving a 7segment display

@@ -11,6 +11,7 @@ class objects:
         self.oname = objectname
         self.otype = objecttype
         self.funcdata = None
+        self.funcdata2 = None
         self.namespace = "global"
         self.ovalue = ""
         self.oattributes = []
@@ -57,6 +58,12 @@ class objects:
 
     def setfuncdata(self, obj):
         self.funcdata = obj
+
+    def getfuncdata2(self):
+        return self.funcdata2
+
+    def setfuncdata2(self, obj):
+        self.funcdata2 = obj
 
     def getname(self):
         return self.oname
@@ -336,8 +343,9 @@ class storetokens:
     def listall(self, buildin=False):
         for o in self.vartokens:
             if o.obuildin == buildin:
-                print("Value:%20s, Name:'%20s', Attribs:%s" % (o.otype, o.oname, o.getattributstring()))
+                # print("Value:%20s, Name:'%20s', Attribs:%s" % (o.otype, o.oname, o.getattributstring()))
+                print("BI:Value:%20s, Name:'%20s', Space:%20s, Addr:%04x: Attribs:%s" % (o.otype, o.oname, o.namespace, o.oaddr, o.getattributstring()))
             if o.obuildin != buildin:
-                print("Value:%20s, Name:'%20s', Space:%20s, Addr:%04x: Attribs:%s" % (o.otype, o.oname, o.namespace, o.oaddr, o.getattributstring()))
+                print("EX:Value:%20s, Name:'%20s', Space:%20s, Addr:%04x: Attribs:%s" % (o.otype, o.oname, o.namespace, o.oaddr, o.getattributstring()))
 
             

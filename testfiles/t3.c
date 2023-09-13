@@ -145,3 +145,25 @@ int main (int argc, int *argv) {
     }
     return 1;
 }
+
+
+
+/*
+void elsetest() {
+    byte i, z, x, w;
+    int sum, a;
+    long counter;
+
+
+    sum = 0;
+    while (sum < 50) {
+        if (sum =< 10) {
+            println("if-branch:", sum);
+        } else {
+            println("else-branch:", sum);
+        }
+        sum = sum + 1;
+    }
+}
+
+*/

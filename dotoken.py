@@ -154,6 +154,11 @@ class dotoken:
         if self.t_type == "semicolon":
             self.stmtstartpos = self.index
 
+    def gettokentypeatnext(self):
+        # index points to the next token
+        return self.tokenlist[self.index].gettype()
+
+
     def listall(self):
         self.stokens.listall(buildin=-1)
 
@@ -236,6 +241,7 @@ class dotoken:
                     if foundtoken == None:
                         foundtoken = self.stokens.getwithnamespace(self.t_value, "_INTERNAL")
             if foundtoken == None:
+                self.stokens.listall()
                 print("identifier: %s not found in namespace '%s', 'global' and '_INTERNAL', terminating in line number %d" % (self.t_value, namespace, self.t_linenumber))
                 sys.exit(1)
             self.log.writelog("dotoken/do_expression do_expression id first", "Type:%s, Value:%s" % (self.t_type, self.t_value))
@@ -711,15 +717,45 @@ class dotoken:
             if self.t_type == "startblock":
                 startifblock = self.blocks.beginblock("if", None)
                 self.code.do_afterif(startifblock)
+        else:
+            print("no if statement in line: %d" % self.t_linenumber)
+            sys.exit(1)
 
-    def do_else(self, t_type, t_value):
+    def do_endif(self, t_type, blockended, elsefollow=False, line=""):
         if t_type == "endblock":
-            pass
+            if elsefollow:
+                self.code.do_afterelse(blockended)
+            else:
+                self.code.end_afterif(blockended)
+            leavednamespace = self.blocks.popfunctionstack()
+
+    def do_else(self, t_type, t_value, blockended):
+        if t_type == "statement_else":
+            self.nexttoken()
+            t = self.t_type
+            v = self.t_value
+            if self.t_type == "startblock":
+                funcdata1 = blockended.getfuncdata()
+                funcdata2 = blockended.getfuncdata2()
+                leavednamespace = self.blocks.popfunctionstack()
+                startelseblock =self.blocks.beginblock("else", None)
+                startelseblock.setfuncdata(funcdata1)
+                startelseblock.setfuncdata2(funcdata2)
+                self.code.do_afterelse(startelseblock)
+            else:
+                print("startblock in else missing, at line %d" % self.t_linenumber)
+                sys.exit(1)
+            
         else:
             print("else without if, terminating in line %d" % self.t_linenumber)
             sys.exit(1)
 
-    def do_while(self,t_type, t_value):
+    def do_endelse(self, t_type, blockended, line=""):
+        if t_type == "endblock":
+            self.code.end_afterelse(blockended)
+            leavednamespace = self.blocks.popfunctionstack()
+
+    def do_while(self, t_type, t_value):
         if t_type == "statement_while":
             whilelabel = self.code.do_whileexpression()
             returntoken = self.stokens.get("_unireg0")
@@ -730,10 +766,14 @@ class dotoken:
                 startwhileblock.setfuncdata(whilelabel)
                 self.code.do_afterwhile(startwhileblock)
 
-    def do_endif(self, t_type, blockended, line=""):
-        if t_type == "endblock":
-            self.code.end_afterif(blockended)
-            leavednamespace = self.blocks.popfunctionstack()
+    def do_for(self, t_type, t_value):
+        if t_type == "statement_for____":
+
+            pass
+        else:
+            print("error in for loop, in line:%d", self.t_linenumber)
+            sys.exit(1)
+        pass
 
     def do_endwhile(self, t_type, blockended, line=""):
         if t_type == "endblock":
@@ -780,8 +820,20 @@ class dotoken:
                     leavednamespace = self.blocks.popfunctionstack()
                     print("leaved block:%s" % leavednamespace)
                 elif blockended.getvalue() == "if":
-                    self.do_endif(self.t_type, blockended, line=self.t_linenumber)
                     # check for following else
+                    if True:
+                        checktype = self.gettokentypeatnext()
+                        if checktype == "statement_else":
+                            self.nexttoken()
+                            self.do_endif(self.t_type, blockended, elsefollow=True, line=self.t_linenumber)
+                            self.do_else(self.t_type, self.t_value, blockended)
+                        else:
+                            self.do_endif(self.t_type, blockended, line=self.t_linenumber)
+                    else:
+                        self.do_endif(self.t_type, blockended, line=self.t_linenumber)
+                elif blockended.getvalue() == "else":
+                    self.do_endelse(self.t_type, blockended, line=self.t_linenumber)
+                    print("do_endelse called, else block is finished")
                 elif blockended.getvalue() == "while":
                     self.do_endwhile(self.t_type, blockended, line=self.t_linenumber)
                 else:
@@ -793,15 +845,15 @@ class dotoken:
                 self.do_goto(self.t_type, self.t_value)
             elif self.t_type == "statement_if":
                 self.do_if(self.t_type, self.t_value)
-            elif self.t_type == "statement_else":
-                self.do_else(self.t_type, self.t_value)
             elif self.t_type == "statement_while":
                 self.do_while(self.t_type, self.t_value)
+#            elif self.t_type == "statement_for":
+#                self.do_for(self.t_type, self.t_value)
             elif self.t_type == "statement_return":
                 self.do_returnstatement(self.t_type, self.t_value)
             elif self.t_type == "semicolon":
                 self.log.writelog("dotoken/emit", "unused semicolon")
-            # self.blocks.debugblockstack()
+            self.blocks.debugblockstack()
             self.nexttoken()
         self.code.handlesubroutines()
         self.code.createsubroutinetable()

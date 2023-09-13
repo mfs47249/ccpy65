@@ -38,7 +38,7 @@ void printsubtable() {
         strcpy(subname, p);
         q = nextafterterminator(p);
         ad = getintataddress(q);
-        println(ad, " is:", subname);
+        printlnhex(ad, " is:", subname);
         p = q + 2;
         ad = getintataddress(p);
         if (ad == 0xACF1) {

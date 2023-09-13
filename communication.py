@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!env python3
 import serial
 import time
 import os
@@ -471,7 +471,7 @@ try:
     if sys.platform == "darwin":
         for port in comports():
             print(port)
-        comm = SerialConn("/dev/cu.usbserial-14130")
+        comm = SerialConn("/dev/cu.usbserial-1410")
     if sys.platform == "linux":
         for port in comports():
             print(port)
