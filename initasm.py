@@ -29,14 +29,31 @@ class initasm:
     programstart = 0x0200
 
     def __init__(self, logger, emit, stokens, varstart, programstart, stackstart):
-        self.modelldescription = "michaels_first_pcb"
-        self.lcdenabled = False
-        # for the breadboardcomputer, we can set LCD to True, because it has one, if not set it to False
-        # self.modelldescription = "beneater_breadboard"
+        #
+        # for other computers, make the configuration configurable. In this case i have my own 6502 pcb computer without
+        # lcd display
+        # self.modelldescription = "michaels_first_pcb"
         # self.lcdenabled = False
-        self.sevensegmentenabled = True
         #
+        # for the breadboardcomputer, we can set LCD to True, because it has one, if not set it to False
+        self.modelldescription = "beneater_breadboard"
+        # self.lcdenabled = False
+        # self.sevensegmentenabled = False
         #
+        # set lowleveldebugging to on, check code for specific hardware configuration
+        self.lowleveldebugging = False
+        #
+        if self.modelldescription == "beneater_breadboard":
+            self.sevensegmentenabled = False
+            self.lcdenabled = True
+        elif self.modelldescription == "michaels_first_pcb":
+            self.sevensegmentenabled = False
+            self.lcdenabled = False
+        else:
+            self.sevensegmentenabled = False
+            self.lcdenabled = False
+            print("don't forget setting IO-Addresses, if there were some")
+        # 
         self.programstart = programstart
         self.logger = logger
         self.emit = emit
@@ -135,7 +152,8 @@ class initasm:
             self.createvar("byte", "type_byte", 1,  "kima_tmpx")
             self.createvar("byte", "type_byte", 1,  "kima_tmpy")
         # set start of global var area
-        emit.setvarstart(varstart)
+        if varstart != 0:
+            emit.setvarstart(varstart)
         self.createvar("int", "type_integer", 2, "t1interval")
         # kim registerst are not in zeropage
         if self.usingkimath:
@@ -235,23 +253,61 @@ class initasm:
         self.create_c_global("int", "type_integer", 2, "errno")
         #
         # create var for uptime counter on lcd
-        if self.lcdenabled or self.sevensegmentenabled:
-            self.createvar("byte", "type_byte", 1,  "lcd_update_statecounter")
-            self.createvar("byte", "type_byte", 1,  "lcd_update_ticks")
-            self.createvar("byte", "type_byte", 1,  "lcd_update_seconds")
-            self.createvar("byte", "type_byte", 1,  "lcd_update_minutes")
-            self.createvar("byte", "type_byte", 1,  "lcd_update_hours")
-            self.createvar("int", "type_int", 1,  "lcd_update_days") 
+        self.createvar("byte", "type_byte", 1,  "lcd_update_statecounter")
+        self.createvar("byte", "type_byte", 1,  "lcd_update_ticks")
+        self.createvar("byte", "type_byte", 1,  "lcd_update_seconds")
+        self.createvar("byte", "type_byte", 1,  "lcd_update_minutes")
+        self.createvar("byte", "type_byte", 1,  "lcd_update_hours")
+        self.createvar("int", "type_int", 1,  "lcd_update_days") 
         #
         # define adjustment and info var for timer 1 clock interval
         #
         #
         # start program
-        emit.insertinline("ORG", self.programstart, 0)
-        emit.createcode("BRA", "programstart")
-        emit.createcode("WORD", "subroutinetable")
-        emit.insertinline("SEI", "", 0, name="programstart")
-        emit.insertinline("CLD", "", 0)
+        emit.insertinline("ORG", "$%04X" % self.programstart, 0)
+        if self.lowleveldebugging:
+            emit.createcode("NOP","","startingpoint is at the beginning of the loop", name="programstart")
+            emit.createcode("LDA", "#$FF", "initialize VIA Port A")
+            emit.createcode("STA", "VIADDRA", "all bits are output")
+            emit.createcode("BRA", "lowleveldebuginitcounter")
+            # only address the via and the acia
+            emit.createcode("LDA", "VIAORBIRB", "Strobe VIA", name="lowleveldebugstrobe")
+            emit.createcode("LDA", "ACIADATA", "Strobe ACIA")
+            emit.createcode("BRA", "lowleveldebugstrobe")
+            #
+            #
+            emit.createcode("LDA", "#$00", name="lowleveldebugloop")
+            emit.createcode("STA", "$00")
+            emit.createcode("LDA", "VIAORBIRB", "Strobe VIA")
+            emit.createcode("LDA", "ACIADATA", "Strobe ACIA")
+            emit.createcode("LDA", "$0", "Strop address 0")
+            emit.createcode("LDA", "$100", "Strop stack")
+            emit.createcode("BRA", "lowleveldebugloop")
+            #
+            # loop to all of the ram from 0000 to 7fff
+            emit.createcode("LDA", "#0", "init registers and counter", name="lowleveldebuginitcounter")
+            emit.createcode("STA", "_unireg0_0")
+            emit.createcode("STA", "_unireg0_1")
+            emit.createcode("LDY", "#0")
+            emit.createcode("LDA", "(_unireg0),Y", "", name="lowlevelprobeloop")
+            emit.createcode("NOP")
+            emit.createcode("NOP")
+            emit.createcode("LDA", "(_unireg0),Y")
+            emit.createcode("INC", "_unireg0_0")
+            emit.createcode("BNE", "lowlevelprobeloop")
+            emit.createcode("LDA", "_unireg0_1")
+            emit.createcode("STA", "VIAORAIRA")
+            emit.createcode("INC", "_unireg0_1")
+            emit.createcode("CMP", "#$80")
+            emit.createcode("BNE", "lowlevelprobeloop")
+            emit.createcode("LDA", "VIAORBIRB", "Strobe VIA")
+            emit.createcode("LDA", "ACIADATA", "Strobe ACIA")
+            emit.createcode("BRA", "lowleveldebuginitcounter")
+        else:
+            emit.createcode("BRA", "programstart")
+            emit.createcode("WORD", "subroutinetable")
+            emit.insertinline("SEI", "", 0, name="programstart")
+            emit.insertinline("CLD", "", 0)
         # clear 6502 stack and set stackpointer to $ff
         emit.createcode("LDX", "#0")
         emit.createcode("STZ", "$100,X", "clear stack-memory", name="_init_6502_stack_memory")
@@ -280,7 +336,8 @@ class initasm:
         emit.insertinline("JSR", "init_transmittimer", 0)
         emit.insertinline("JSR", "init_aciaserial", 0)
         emit.insertinline("JSR", "init_clocktimer", 0)
-        emit.insertinline("JSR", "init_seven_segment", 0)
+        if self.sevensegmentenabled:
+            emit.insertinline("JSR", "init_seven_segment", 0)
         # initializing VIA PA for debugging
         #
         emit.insertinline("CLI", "", 0)
@@ -323,7 +380,8 @@ class initasm:
         emit.insertinline("JSR", "aciairqhandler", 0)
         emit.insertinline("JSR", "irq_handler_transmittimer", 0)
         emit.insertinline("JSR", "irq_handler_clocktimer", 0)
-        emit.insertinline("JSR", "seven_segment_irq_handler", 0)
+        if self.sevensegmentenabled:
+            emit.insertinline("JSR", "seven_segment_irq_handler", 0)
         emit.createcode("PLY")
         emit.createcode("PLX")
         emit.createcode("PLA")
@@ -377,7 +435,8 @@ class initasm:
         if self.lcdenabled:
             self.emit_LCDbeneater()
         self.emit_ClockTimer()
-        self.emit_7segment()
+        if self.sevensegmentenabled:
+            self.emit_7segment()
         self.emit_AciaRoutines()
         self.emit_transmittimer()
         self.emit_transmitirqhandler()
@@ -651,7 +710,7 @@ class initasm:
         if self.modelldescription == "beneater_breadboard":
             aciabaseaddress = int(0x5000)
         if self.modelldescription == "michaels_first_pcb":
-            aciabaseaddress = int(0x7820)
+            aciabaseaddress = int(0x7810)
         self.emit.createcode("=", "$%04X" % aciabaseaddress,   "Output- Inputregister", name="ACIADATA")
         self.emit.createcode("=", "$%04X" % (aciabaseaddress+1),   "Status Register",     name="ACIASTATUS")
         self.emit.createcode("=", "$%04X" % (aciabaseaddress+2),   "Command Register",    name="ACIACOMMAND")
@@ -679,9 +738,10 @@ class initasm:
         # interrupt handler for ACIA RECEIVE INTERRUPTS
         self.emit.createcode("BIT", "ACIASTATUS", "check if irq is on acia", name="aciairqhandler")
         self.emit.createcode("BPL", "inbuf_exitaciairqhandlernopla", "branch to rts if no irq")
-        # disable LCD Uptime for some seconds, for dont block inside irq handler (may be not necessary)
-        self.emit.createcode("LDA", "#245")
-        self.emit.createcode("STA", "lcd_update_statecounter", "disable lcd update for some (255-245) seconds")
+        if False:
+            # disable LCD Uptime for some seconds, for dont block inside irq handler (may be not necessary)
+            self.emit.createcode("LDA", "#245")
+            self.emit.createcode("STA", "lcd_update_statecounter", "disable lcd update for some (255-245) seconds")
         #  insert char into buffer
         # self.emit.createcode("LDX", "#1", "loop for waiting if register is empty")
         self.emit.createcode("LDX", "#20", "loop for waiting if register is empty")
@@ -859,7 +919,7 @@ class initasm:
             # string take 2ms, this is to much for serial communication with 19200 baud. we lost receiving chars.
             # we build a state machine and write the string in 8 pices, every tick (every 10 ms), writing 
             # the whole string takes ca. 80ms
-            self.emit.createcode("INC", "lcd_update_statecounter", "inc statemachine")
+            #self.emit.createcode("INC", "lcd_update_statecounter", "inc statemachine")
             self.emit.createcode("LDA", "lcd_update_statecounter", "if state is 0, skip the whole part")
             self.emit.createcode("BEQ", "irq_handler_clocktimer_do_ticks", "if state is none, then do normal operation")
             self.emit.createcode("BMI", "irq_handler_clocktimer_do_ticks", "if negative, then also skip")
@@ -916,7 +976,8 @@ class initasm:
             #
             self.emit.createcode("LDA", "lcd_update_seconds", name="irq_handler_checkfor_state_7")
             self.emit.createcode("JSR", "_OUT_ACCU_LCD", "write decimal value")
-            self.emit.createcode("STZ", "lcd_update_statecounter", "all states finished, disable lcd-write")
+            self.emit.createcode("LDA", "#0", "set statecounter to zero")
+            self.emit.createcode("STA", "lcd_update_statecounter", "all states finished, disable lcd-write")
             #
         self.emit.createcode("INC", "global_tickscounter_0", "count ticks the normal way",name="irq_handler_clocktimer_do_ticks")
         self.emit.createcode("BNE", "end_irq_handler_clocktimer_pla")
@@ -967,9 +1028,11 @@ class initasm:
         self.emit.createcode("ADC", "#0")
         self.emit.createcode("STA", "lcd_update_days_1")
         self.emit.createcode("CLD", "", "clear decimal flag for normal operation", name="lcdcontinueuptime0")
-        self.emit.createcode("RTS")
-        # dummys for lcd routines
-        if not self.lcdenabled:
+        # if lcd, then put code to start, if not, put dummy routines for lcd_display
+        if self.lcdenabled:
+            self.emit.createcode("INC", "lcd_update_statecounter", "start statecounter, set to 1")
+            self.emit.createcode("RTS")
+        else:
             self.emit.createcode("", "", "Dummy Label for lcd_instruction and print_lcdchar", name="print_lcdchar")
             self.emit.createcode("RTS", "", "Dummy Subroutine for the above routines", name="lcd_instruction")
 
