@@ -44,14 +44,39 @@
                      "-I", "libfuncs/numberconvert",
                      "-I", "libfuncs/memory",
                      "-I", "libfuncs/misc",
-                     "--stackstart", "0x4000",
-                     "--varstart",   "0x3000",
+                     "--stackstart", "0x7000",
+                     "--varstart",   "0x6000",
                      "--progstart",  "0x8000",
                      "monitor.c"
                     ],
             "console": "integratedTerminal",
             "justMyCode": true
         },
+        {
+            "name": "Python: Monitorprogram to RAM (32Kb!!) Config",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["--debug2",
+                     "-o", "test.s",
+                     "-I", "testfiles",
+                     "-I", "testfiles/expressions",
+                     "-I", "testfiles/usefulfunctions",
+                     "-I", "testfiles/programs",
+                     "-I", "testfiles/numbertests",
+                     "-I", "libfuncs/stringfunctions",
+                     "-I", "libfuncs/numberconvert",
+                     "-I", "libfuncs/memory",
+                     "-I", "libfuncs/misc",
+                     "--stackstart", "0x7000",
+                     "--varstart",   "0x6000",
+                     "--progstart",  "0x0200",
+                     "smallmonitor.c"
+                    ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+
         {
             "name": "Python: Current File",
             "type": "python",
@@ -117,14 +142,40 @@
                      "-I", "libfuncs/numberconvert",
                      "-I", "libfuncs/memory",
                      "-I", "libfuncs/misc",
-                     "--stackstart", "0x4000",
-                     "--varstart",   "0x3000",
+                     "--stackstart", "0x7000",
+                     "--varstart",   "0x6000",
                      "--progstart",  "0x0200",
                      "--outfile", "test.s",
                      "t4.c"
                     ],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Testprogram t5.c",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["--debug2",
+                     "-o", "test.s",
+                     "-I", "testfiles",
+                     "-I", "testfiles/expressions",
+                     "-I", "testfiles/usefulfunctions",
+                     "-I", "testfiles/programs",
+                     "-I", "testfiles/numbertests",
+                     "-I", "libfuncs/stringfunctions",
+                     "-I", "libfuncs/numberconvert",
+                     "-I", "libfuncs/memory",
+                     "-I", "libfuncs/misc",
+                     "--stackstart", "0x4000",
+                     "--varstart",   "0x3000",
+                     "--progstart",  "0x0200",
+                     "--outfile", "test.s",
+                     "t5.c"
+                    ],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
+
     ]
 }

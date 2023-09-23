@@ -26,7 +26,7 @@ int getintataddress(ADDRESSPTR q) {
 
 void printsubtable() {
     ADDRESSPTR p, q;
-    int ad;
+    int ad, le;
     int x1,x2;
     byte endofloop;
     char subname[128];
@@ -34,11 +34,14 @@ void printsubtable() {
     endofloop = 1;
     p = adr("subroutinetable"); // get address of subroutinetable in this program!
     println("Table is at:", p);
+    le = 0;
     while (endofloop) {
         strcpy(subname, p);
         q = nextafterterminator(p);
         ad = getintataddress(q);
-        printlnhex(ad, " is:", subname);
+        le = ad - le;
+        printlnhex(ad, " is:", subname, " le:", le);
+        le = ad;
         p = q + 2;
         ad = getintataddress(p);
         if (ad == 0xACF1) {

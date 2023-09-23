@@ -15,13 +15,16 @@ int getintataddress(ADDRESSPTR q) {
 int main(int argc, ADDRESSPTR argv) {
     ADDRESSPTR search;
     byte dosearch;
-    ADDRESSPTR pattern;
+    ADDRESSPTR pattern, prgstart, q;
 
 
-    while (dosearch) {
-        dosearch = 0;
+    if (q == 0x100) {
+        q = 0;
     }
-    search = 0x200;
+    search = adr("programstart");
+    search = search - 2;
+    q = getintataddress(search);
+    printlnhex("Searching for startaddress of table:", q);
     dosearch = 1;
     printlnhex("Starting with search at adr:", search);
     while (dosearch) {
@@ -34,10 +37,9 @@ int main(int argc, ADDRESSPTR argv) {
                 dosearch = 0;
                 printlnhex("Found Pattern at:", search);
             } 
-        } else {
-            print("x");
         }
         if (search > 0x3000) {
+            printlnhex("Search stoppted at:", search);
             dosearch = 0;
             search = 0;
         }

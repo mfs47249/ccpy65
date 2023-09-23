@@ -1,66 +1,25 @@
-#include <dumpmemory.c>
+#include <factorial.c>
+#include <printsubtable.c>
 
-char manychars[512];
-char tempchars[512];
 
-int main(int argc, ADDRESSPTR argv)  { 
-    char chars;
-    byte done;
-    int c1;
-    ADDRESSPTR start, end;
+long main(int argc, ADDRESSPTR argv) {
+    ADDRESSPTR s;
+    long i, max, xd;
+    ADDRESSPTR p;
+    wozfloat x,y;
 
-    c1 = 4;
-    strcpy(manychars, "");
-    while (c1 > 0) {
-        chars = 'A';
-        while (chars =< 'Z') {
-            strcat(manychars, chars);
-            chars = chars + 1;
-        }
-        chars = 'a';
-        while (chars =< 'z') {
-            strcat(manychars, chars);
-            chars = chars + 1;
-        }
-        chars = '0';
-        while (chars =< '9') {
-            strcat(manychars, chars);
-            chars = chars + 1;
-        }
-        c1 = c1 - 1;
+    println("Calculating 100 x");
+    max = 100;
+    i = 0;
+    x = real(100);
+    y = x / 1000;
+    while (i < max) {
+        p = adr("_userstack");
+        s = getintataddress(p);
+        println("Userstack:", s, " iterations:", i, " wfloat:", xd);
+        factorialtest();
+        i = i + 1;
+        x = x + y;
+        xd = integer(x);
     }
-
-    c1 = strlen(manychars);
-    println("Stringlength:", c1);
-
-    done = 1;
-    while (done) {
-        start = 0x8000;
-        end = 0xB000;
-        dumpfromto(start, end);
-        chars = avail();
-        if (chars > 0) {
-            chars = getch();
-            if (chars == 3) {
-                done = 0;
-            }
-        }
-        done = 0;
-    }
-
-
-    done = 1;
-    while (done) {
-        println(manychars);
-        chars = avail();
-        if (chars > 0) {
-            chars = getch();
-            if (chars == 3) {
-                done = 0;
-            }
-        }
-    }
-
-
-    _JSR $8000;
 }
