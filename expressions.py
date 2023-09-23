@@ -56,6 +56,7 @@ class anode:
         if tok.gettype() == "number":
             self.name = str(tok.getname())
         self.prec = self.precedence[tok.gettype()]
+        self.lastopwas = "math"
 
     def isleaf(self):
         result = ((self.left is None) and (self.right is None))
@@ -796,6 +797,7 @@ class expressions:
             self.code.begindoevaluate(self.evalopsize, expression, self.evaluatedepth)
             print("------------------------ Generate Code ---------------------------")
             stackdepth = 0
+            self.lastopwas = "math"
             for op in operand_stack:
                 token = op.gettoken()
                 print("Name:%s" % token.getname())
@@ -804,33 +806,43 @@ class expressions:
                 if operation == "plussign":
                     self.code.addonstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "math"
                 elif operation == "minussign":
                     self.code.subonstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "math"
                 elif operation == "star" or operation == "pointer":
                     self.code.mulonstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "math"
                 elif operation == "slash":
                     self.code.divonstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "math"
                 elif operation == "equalequal":
                     self.code.equalstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "logic"
                 elif operation == "notequal":
                     self.code.notequalstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "logic"
                 elif operation == "equalsmaller" or operation == "smallerequal":
                     self.code.equalsmallerstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "logic"
                 elif operation == "equalgreater" or operation == "greaterequal":
                     self.code.equalgreaterstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "logic"
                 elif operation == "smaller":
                     self.code.smallerstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "logic"
                 elif operation == "greater":
                     self.code.greaterstack(self.options)
                     stackdepth -= 1
+                    self.lastopwas = "logic"
                 elif op.isnumber():
                     tokenfullname = token.getnamewithnamespace()
                     if tokenfullname == None:
@@ -838,6 +850,7 @@ class expressions:
                         sys.exit(1)
                     self.code.pushvaluetostack(token)
                     stackdepth += 1
+                    self.lastopwas = "math"
                 elif op.isfunction():
                     tokenfullname = token.getnamewithnamespace()
                     if tokenfullname == None:
@@ -848,6 +861,7 @@ class expressions:
                     self.code.funcfromexpression(token, self.options)
                     stackdepth -= 1
                     self.log.writelog("expressions/generate:", "isfunction: %s" % tokenfullname)
+                    self.lastopwas = "math"
                 elif op.isinternalfunc():
                     tokenfullname = token.getnamewithnamespace()
                     if tokenfullname == None:
@@ -859,6 +873,7 @@ class expressions:
                     self.code.internalfuncfromexpression(token, self.options)
                     stackdepth -= 1
                     self.log.writelog("expressions/generate:", "isinternalfunc: %s" % tokenfullname)
+                    self.lastopwas = "math"
                 elif op.isvar():
                     tokenfullname = token.getnamewithnamespace()
                     if tokenfullname == None:
@@ -869,6 +884,7 @@ class expressions:
                     stackdepth += 1
                     self.options = token.gettype()
                     self.code.pushvartostack(token)
+                    self.lastopwas = "math"
                 elif op.isargument():
                     tokenfullname = token.getnamewithnamespace()
                     if tokenfullname == None:
@@ -878,6 +894,7 @@ class expressions:
                         self.evalopsize = token.getsize()
                     stackdepth += 1
                     self.options = token.gettype()
+                    self.lastopwas = "math"
                     self.code.pushvartostack(token)
                 else:
                     print("something is going wrong in expressions/generate code gerenration >%s< unknown in evaluate" % operation)
@@ -889,7 +906,13 @@ class expressions:
             # result = self.prepareevaluate(root)
             # result = self.evaluate(root)
             # print("found real avluate evalsize: %d" % self.evalopsize)
-            self.code.popvarfromstack(foundtoken, lineno=self.linenumber)
+            if self.lastopwas == "math":
+                self.code.popvarfromstack(foundtoken, lineno=self.linenumber, lastopwas=self.lastopwas)
+            elif self.lastopwas == "logic":
+                self.code.popvarfromstack(foundtoken, lineno=self.linenumber, lastopwas=self.lastopwas)
+            else:
+                print("lastopwas neither math nor logic, there is something wrong")
+                sys.exit(1)
             self.optionkeys = dict()
         self.tokenlist.clear()
         self.optionkeys.clear()

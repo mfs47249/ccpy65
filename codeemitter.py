@@ -497,10 +497,10 @@ class codeemitter:
         self.setcomment("debugstring")
         self.createassemberline()
         self.createcode("byte","0","end of string c-like")
+        self.createcode("NOP", "", "label for continue program", name=debuglabelend)
+        self.createcode("JSR", "_OUT_USERSTACK")
         if cr:
-            self.createcode("JSR", "_OUTPUTCRLF", "end of debougoutput", name=debuglabelend)
-        else:
-            self.createcode("NOP", "", "end of debougoutput", name=debuglabelend)
+            self.createcode("JSR", "_OUTPUTCRLF", "end of debougoutput")
 
     def printwozfloatMXininteger(self, wozfloatreg):
         m2loop = self.randomword(8)
@@ -829,7 +829,7 @@ class codeemitter:
             self.createcode("JSR", convertedsubname)
         print("pushvar to stack called with Variable:%s" % str(name))
 
-    def popvarfromstack(self, fromtoken, ptr_a_dest=False, ptr_a_source=False, lineno=0):
+    def popvarfromstack(self, fromtoken, ptr_a_dest=False, ptr_a_source=False, lineno=0, lastopwas=""):
         debug = self.debug_espression
         namespace = self.blocks.getactivefunctionname()
         avalue = fromtoken.getvalue()
@@ -839,6 +839,8 @@ class codeemitter:
         dest_attr = fromtoken.getattributehash()
         ureg = self.expr_stack_index
         destsize = fromtoken.getsize()
+        if lastopwas == "logic":
+            destsize = 1
         self.log.writelog("codeemitter/popvarfromstack", "dest:%s" % (name))
         if name == "recurse_a":
             xxxx = 0
@@ -3465,7 +3467,8 @@ class codeemitter:
                     self.createcode("LDA", sourcename + '_0')
                     self.createcode("JSR", "_OUTHEX")
                 else:
-                    if functionname == "printhex" or functionname == "printlnhex":
+                    # if type is pointer, then also print the hex value
+                    if functionname == "printhex" or functionname == "printlnhex" or self.checkhash(source_attr, "type_varpointer") or self.checkhash(source_attr, "type_pointer"):
                         if sourcenamespace == "global":
                             self.createcode("LDA", "%s_1" % sourcenamewithnamespace, "internal write with global int or pointer")
                             self.createcode("JSR", "_OUTHEX")
@@ -4217,7 +4220,7 @@ class codeemitter:
                 print("internal function %s() must be called with var argument" % functionname)
             else:
                 print("internal function %s() must be called with const or var" % functionname)
-
+    # real(), integer()
     def intfunc_tofloat(self, functionobj, arglist, line=0):
         debug = False
         functionname = functionobj.getname()
@@ -4653,6 +4656,8 @@ class codeemitter:
             self.createcode("STA", "_framepointer_0", "Save Userstack lo in framepointer")
             self.createcode("LDA", "_userstack_1", "Load User-Stack lo byte")
             self.createcode("STA", "_framepointer_1", "Save Userstack lo in framepointer")
+        # create debug output when calling a function
+        # self.createdebugout(value, cr=True)
         return
 
     def stopfunctionarguments(self, name, value, attributes, istnotglobal):
