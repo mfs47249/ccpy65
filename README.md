@@ -70,6 +70,8 @@ The following picture shows this timing with an oszilloscope. I added additonal 
 reiceiving it error free. This may be is a problem with the receiver, but i don't know. With this adjustment
 error rate was minimized.
 
+Errorrate dropped to zero after installing additional capacitors to the system. The problem was not a bad software, but a lack of stable voltage for the ACIA chip. 
+
 ![](docu/images/Breadboard-Computer-Transfer-TxD.png)(Picture of timing during send char routine)
 
 
