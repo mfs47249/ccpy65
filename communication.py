@@ -1,4 +1,4 @@
-#!env python3
+#!/usr/local/bin/python3
 import serial
 import time
 import os
@@ -431,7 +431,7 @@ if args.fastmode:
 if args.length:
     packetlength = int(args.length)
 if args.datafile:
-    towritedata = open(args.datafile)
+    towritedata = open(args.datafile, "rb")
 else:
     print("sys.platform is:%s" % sys.platform)
     # Microsoft Windows Version of Path on my Computer (insert your path here)
@@ -443,7 +443,7 @@ else:
         towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
     # Apple Macintosh Version of Path on my Computer
     if sys.platform == "darwin":
-        towritedata = open("/Users/mf/github/ccpy65/asmtest/a.out", "rb")
+        towritedata = open("a.out", "rb")
     if sys.platform == "linux":
         towritedata = open("/home/mf/github/ccpy65/asmtest/a.out", "rb")
 #
@@ -461,28 +461,35 @@ if not checkok:
     print("check is not ok, data is invalid")
     sys.exit(1)
 cmds = writedata.returncmds(address)
-try:
-    # this is the windows version of my serial connection 
-    if sys.platform == "win32":
-        for port in comports():
-            print(port)
-        comm = SerialConn("COM4")
-    # this is the apple macintosh version of my serial connection
-    if sys.platform == "darwin":
-        for port in comports():
-            print(port)
-        comm = SerialConn("/dev/cu.usbserial-1410")
-    if sys.platform == "linux":
-        for port in comports():
-            print(port)
-        comm = SerialConn("/dev/ttyS0")
-    if sys.platform == "cygwin":
-        for port in comports():
-            print(port)
-        comm = SerialConn("/dev/ttyS3")
-except:
-    print("Problems to open the serial connection, is your terminal program running?")
-    sys.exit(1)
+tryserial = 0
+while tryserial < 10:
+    try:
+        # this is the windows version of my serial connection 
+        if sys.platform == "win32":
+            for port in comports():
+                print(port)
+            comm = SerialConn("COM4")
+        # this is the apple macintosh version of my serial connection
+        if sys.platform == "darwin":
+            for port in comports():
+                print(port)
+            comm = SerialConn("/dev/cu.usbserial-1410")
+        if sys.platform == "linux":
+            for port in comports():
+                print(port)
+            comm = SerialConn("/dev/ttyS0")
+        if sys.platform == "cygwin":
+            for port in comports():
+                print(port)
+            comm = SerialConn("/dev/ttyS3")
+        tryserial = 10;
+    except:
+        print("Problems to open the serial connection, is your terminal program running?")
+        if tryserial >= 9:
+            print("Terminating....")
+            sys.exit(1)
+        tryserial += 1
+        time.sleep(1)
 if datatransfer == "fastmode":
     comm.putdata(address, length, newdata, packetlength, "+")
 elif datatransfer == "wozmode":
