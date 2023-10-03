@@ -32,11 +32,11 @@ class initasm:
         #
         # for other computers, make the configuration configurable. In this case i have my own 6502 pcb computer without
         # lcd display
-        # self.modelldescription = "michaels_first_pcb"
+        self.modelldescription = "michaels_first_pcb"
         # self.lcdenabled = False
         #
         # for the breadboardcomputer, we can set LCD to True, because it has one, if not set it to False
-        self.modelldescription = "beneater_breadboard"
+        # self.modelldescription = "beneater_breadboard"
         # self.lcdenabled = False
         # self.sevensegmentenabled = False
         #
