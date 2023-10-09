@@ -152,7 +152,7 @@
             "justMyCode": true
         },
         {
-            "name": "Testprogram t5.c",
+            "name": "Testprogram t5.c Bean Eater Computer",
             "type": "python",
             "request": "launch",
             "program": "main.py",
@@ -171,6 +171,32 @@
                      "--varstart",   "0x3000",
                      "--progstart",  "0x0200",
                      "--outfile", "test.s",
+                     "t5.c"
+                    ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Testprogram t5.c Michaels first PCB",
+            "type": "python",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["--debug2",
+                     "-o", "test.s",
+                     "-I", "testfiles",
+                     "-I", "testfiles/expressions",
+                     "-I", "testfiles/usefulfunctions",
+                     "-I", "testfiles/programs",
+                     "-I", "testfiles/numbertests",
+                     "-I", "libfuncs/stringfunctions",
+                     "-I", "libfuncs/numberconvert",
+                     "-I", "libfuncs/memory",
+                     "-I", "libfuncs/misc",
+                     "--stackstart", "0x7000",
+                     "--varstart",   "0x4000",
+                     "--progstart",  "0x0200",
+                     "--outfile", "test.s",
+                     "--modell", "michaels_first_pcb",
                      "t5.c"
                     ],
             "console": "integratedTerminal",

@@ -28,11 +28,11 @@ class initasm:
     zeropagestart = 0x0000
     programstart = 0x0200
 
-    def __init__(self, logger, emit, stokens, varstart, programstart, stackstart):
+    def __init__(self, logger, emit, stokens, varstart, programstart, stackstart, modell):
         #
         # for other computers, make the configuration configurable. In this case i have my own 6502 pcb computer without
         # lcd display
-        self.modelldescription = "michaels_first_pcb"
+        self.modelldescription = modell
         # self.lcdenabled = False
         #
         # for the breadboardcomputer, we can set LCD to True, because it has one, if not set it to False

@@ -513,6 +513,7 @@ class initsystem:
     varstart = 0x8000
     heapstart = 0x6000
     progstart = 0x0200
+    modell = "beneater_breadboard"
 
     def __init__(self):
         ap = ArgumentParser(description="ccpy65: accept the following options:")
@@ -526,6 +527,7 @@ class initsystem:
         ap.add_argument("--stackstart", help="below is reserved for stack")
         ap.add_argument("--varstart", help="set startaddress of var, grows to higher address")
         ap.add_argument("--progstart", help="set start of program")
+        ap.add_argument("--modell", help="set modell type in init_asm")
         ap.add_argument("files", type=str, nargs="+", help="list of files")
         self.ccargs = vars(ap.parse_args())
         if self.ccargs["debug"] == True:
@@ -566,6 +568,10 @@ class initsystem:
             else:
                 self.progstart = int(a_progstart)
             print("Program Start is:%04X, decimal:%d" % (self.progstart, self.progstart))
+        if self.ccargs["modell"] != None:
+            self.modell = self.ccargs['modell']
+            print("Modell type is:%s" % self.modell)
+
 
         self.searchincludepath()
         if len(self.includefiles) > 0:
@@ -585,6 +591,9 @@ class initsystem:
 
     def getstackstart(self):
         return self.stackstart
+
+    def getmodell(self):
+        return self.modell
 
     def searchincludepath(self):
         self.fil = findinincludelist(self.ccargs["include"])
@@ -643,7 +652,7 @@ if __name__ == "__main__":
         fd.processdata(instance)
     # tokens.listtokens()
     # tokens.listall()
-    tokens.emit(instance.getvarstart(), instance.getprogstart(), instance.getstackstart(), instance.getoutfilepath())
+    tokens.emit(instance.getvarstart(), instance.getprogstart(), instance.getstackstart(), instance.getoutfilepath(), instance.getmodell())
     tokens.close()
     # tokens.listalluserdefined()
     if False:

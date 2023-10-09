@@ -780,7 +780,7 @@ class dotoken:
             self.code.end_afterwhile(blockended)
             leavednamespace = self.blocks.popfunctionstack()
 
-    def emit(self, varstart, programstart, stackstart, outfilepath):
+    def emit(self, varstart, programstart, stackstart, outfilepath, modell):
         attributes = []
         self.code.openoutfilepath(outfilepath)
         # add global namespace
@@ -793,7 +793,7 @@ class dotoken:
         funcobj = funcdef(called_name, called_type, stoken)
         blockobject = self.blocks.beginblock("global", funcobj)
         # end add global namespace
-        self.initasm = initasm(self.log, self.code, self.stokens, varstart, programstart, stackstart)
+        self.initasm = initasm(self.log, self.code, self.stokens, varstart, programstart, stackstart, modell)
         # self.code.setvarstart(varstart) # already done at initasm  above
         self.index = 0
         self.nexttoken()
