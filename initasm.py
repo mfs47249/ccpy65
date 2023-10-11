@@ -44,7 +44,7 @@ class initasm:
         self.lowleveldebugging = False
         #
         if self.modelldescription == "beneater_breadboard":
-            self.sevensegmentenabled = False
+            self.sevensegmentenabled = True
             self.lcdenabled = True
         elif self.modelldescription == "michaels_first_pcb":
             self.sevensegmentenabled = False
