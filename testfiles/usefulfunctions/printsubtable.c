@@ -40,7 +40,7 @@ void printsubtable() {
         q = nextafterterminator(p);
         ad = getintataddress(q);
         le = ad - le;
-        printlnhex(ad, " is:", subname, " le:", le);
+        printlnhex(ad, " is:", subname, " len:", le);
         le = ad;
         p = q + 2;
         ad = getintataddress(p);

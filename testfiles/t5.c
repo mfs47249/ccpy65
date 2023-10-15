@@ -7,8 +7,8 @@ long main(int argc, ADDRESSPTR argv) {
     long i, max, sum;
 
     println("Calculating 100 x");
-    f1 = adr("factorial");
-    f2 = adr("main");
+    f1 = adr("programstart");
+    f2 = adr("kima_konst");
     max = 10000;
     i = 0;
     while (i < max) {
@@ -22,6 +22,7 @@ long main(int argc, ADDRESSPTR argv) {
         p = adr("_userstack");
         s = getintataddress(p);
         // println("Userstack:", s, " iterations:", i);
+        // _JSR $AC63;
         factorialtest();
         i = i + 1;
     }
