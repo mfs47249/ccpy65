@@ -5,8 +5,8 @@
 #include <findinstrings.c>
 #include <convert_to_bin.c>
 #include <dumpmemory.c>
-#include <printsubtable.c>
-#include <factorial.c>
+// #include <printsubtable.c>
+// #include <factorial.c>
 
 long timerinterval;
 
@@ -223,6 +223,30 @@ void process_buffer() {
     //println("len:", length, " adr:", address, " sum:", checksum, " calcsum:", calcchecksum, " errors:", errors);
 }
 
+int terminal(ADDRESSPTR cmdline) {
+    ADDRESSPTR p;
+    byte doloop;
+    char inchar;
+
+    println("");
+    println("mini Term startet, every Input");
+    println("sets the PIA Port B and strobes CB2");
+    println("control-Z exits.");
+    doloop = 1;
+    p = 0x7832;
+    while (doloop) {
+        inchar = getch();
+        if (inchar == 0x1A) {
+            // if control-z is pressed, leave loop
+            doloop = 0;
+        } else {
+            poke(p,inchar);
+        }
+    }
+    println("done");
+    return 0;
+}
+
 int setmemory(ADDRESSPTR cmdline) {
     ADDRESSPTR p, q, st, converr_ptr;
     byte hexbyte, converr;
@@ -270,6 +294,15 @@ int analyse() {
             notfound = 0;
         }
     }
+    if (notfound) {
+        strcpy(search_buf, "term");
+        result = findincmd();
+        if (result == 0) {
+            terminal(cmd_buf);
+            notfound = 0;
+        }
+    }
+
 /*
     if (notfound) {
         strcpy(search_buf, "ru");
@@ -298,15 +331,6 @@ int analyse() {
             println();
             p = adr(cmd_buf);
             dump_memory(p);
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "prtab");
-        result = findincmd();
-        if (result == 0) {
-            println();
-            printsubtable();
             notfound = 0;
         }
     }

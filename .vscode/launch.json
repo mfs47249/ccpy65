@@ -72,6 +72,7 @@
                      "--stackstart", "0x7000",
                      "--varstart",   "0x6000",
                      "--progstart",  "0x0200",
+                     "--modell", "michaels_first_pcb",
                      "smallmonitor.c"
                     ],
             "console": "integratedTerminal",
@@ -196,7 +197,7 @@
                      "-I", "libfuncs/memory",
                      "-I", "libfuncs/misc",
                      "--stackstart", "0x7000",
-                     "--varstart",   "0x4000",
+                     "--varstart",   "0x5000",
                      "--progstart",  "0x0200",
                      "--outfile", "test.s",
                      "--modell", "michaels_first_pcb",

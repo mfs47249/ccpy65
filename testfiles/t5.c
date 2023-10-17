@@ -18,10 +18,10 @@ long main(int argc, ADDRESSPTR argv) {
             sum = sum + peek(p);
             p = p + 1;
         }
-        printlnhex("i:", i, " f1:", f1, " f2:", f2, " sum:", sum);
+        println("i:", i, " f1:", f1, " f2:", f2, " sum:", sum);
         p = adr("_userstack");
         s = getintataddress(p);
-        // println("Userstack:", s, " iterations:", i);
+        //Okrintln("Userstack:", s, " iterations:", i);
         // _JSR $AC63;
         factorialtest();
         i = i + 1;

@@ -12,11 +12,14 @@ int iterate(int n) {
 
 int main(int argc, char *argv) {
     int a, b;
+    ADDRESSPTR p;
 
     a = 0;
-    while (a < 20000) {
-        b = iterate(1000);
-        println("iterations = ", a);
+    p = 0x7832;
+    while (1) {
+        // b = iterate(1000);
+        // println("iterations = ", a);
+        poke(p,a);
         a = a + 1;
     }
     println("Ende");

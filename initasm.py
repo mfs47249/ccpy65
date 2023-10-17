@@ -49,6 +49,7 @@ class initasm:
         elif self.modelldescription == "michaels_first_pcb":
             self.sevensegmentenabled = False
             self.lcdenabled = False
+            self.cpufreq = 2.0
         else:
             self.sevensegmentenabled = False
             self.lcdenabled = False
@@ -66,6 +67,7 @@ class initasm:
         self.stokens = stokens
         self.defineVIA6522()
         self.defineACIA6551()
+        self.definePIA6521()
         for reg in [ '0','A','1','B','2','C','3','D','4','E','5','F','6','G','7','H' ]:
             dataregistername = "_unireg%s" % reg
             if reg in [ '0','1','2','3','4','5','6','7' ]:
@@ -326,9 +328,13 @@ class initasm:
         emit.createcode("LDA", "#>t1calledsubdummy")
         emit.createcode("STA", "t1calledsubroutine_1")
         # initialize timer interval (used for calculation in the gettimer() function)
-        emit.createcode("LDA", "#$0e", "Initialize Timer to 10ms")
+        # set timer to 0x270e * cpu freq
+        freq = "%04x" % int(9998 * self.cpufreq)
+        freqhi = "%s" % freq[0:2]
+        freqlo = "%s" % freq[2:4]
+        emit.createcode("LDA", "#$%s" % freqlo, "Initialize Timer to 10ms")
         emit.createcode("STA", "t1interval_0")
-        emit.createcode("LDA", "#$27")
+        emit.createcode("LDA", "#$%s" % freqhi)
         emit.createcode("STA", "t1interval_1")
         #
         if self.lcdenabled:
@@ -338,6 +344,7 @@ class initasm:
         emit.insertinline("JSR", "init_clocktimer", 0)
         if self.sevensegmentenabled:
             emit.insertinline("JSR", "init_seven_segment", 0)
+        emit.insertinline("JSR", "initPIA6521", 0)
         # initializing VIA PA for debugging
         #
         emit.insertinline("CLI", "", 0)
@@ -440,6 +447,7 @@ class initasm:
         self.emit_AciaRoutines()
         self.emit_transmittimer()
         self.emit_transmitirqhandler()
+        self.emit_PIA6521()
         # self.emit_outputcharwithdelay()
         self.createinternalfunction("writelf", "type_void", "_OUTPUTCRLF")
         self.createinternalfunction("write_ureg0", "type_void", "_OUT_UNIREG0")
@@ -684,6 +692,14 @@ class initasm:
         stoken.setnamespace("global")
         self.emit.varstatement(stoken, datatype, name)
 
+    def definePIA6521(self):
+        if self.modelldescription == "michaels_first_pcb":
+            aciabaseaddress = int(0x7830)
+            self.emit.createcode("=", "$%04X" % (aciabaseaddress+0), "Pia Interface A", name="PIA_INTERFACE_A")
+            self.emit.createcode("=", "$%04X" % (aciabaseaddress+1), "Pia Control A",   name="PIA_CONTROL_A")
+            self.emit.createcode("=", "$%04X" % (aciabaseaddress+2), "Pia Interface B", name="PIA_INTERFACE_B")
+            self.emit.createcode("=", "$%04X" % (aciabaseaddress+3), "Pia Control B",   name="PIA_CONTROL_B")
+
     def defineVIA6522(self):
         if self.modelldescription == "beneater_breadboard":
             viabaseaddress = int(0x6000) # Base Address of VIA 6522 in Ben Eaters Breadboard-Computer
@@ -807,6 +823,29 @@ class initasm:
         self.emit.createcode("LDA", "ACIADATA", "get char from acia only for resetting the irq line")
         self.emit.createcode("RTS")
 
+    def emit_PIA6521(self):
+        if self.modelldescription == "michaels_first_pcb":
+            # initialize Pora A and Port B as Outputs
+            self.emit.createcode("LDA", "#%00000000", "Put PIA I A into DDR Mode", name="initPIA6521")
+            #                                +++----------- 000 = Set IRQ to OFF
+            #                                   +---------- 0   = Set PIA Interface A/B to DDR-Mode
+            #                                    ++-------  00  = Set IRQ to OFF
+            self.emit.createcode("STA", "PIA_CONTROL_A")
+            self.emit.createcode("STA", "PIA_CONTROL_B")
+            self.emit.createcode("LDA", "#$FF")
+            self.emit.createcode("STA", "PIA_INTERFACE_A")
+            self.emit.createcode("STA", "PIA_INTERFACE_B")
+            self.emit.createcode("LDA", "#%00101100", "Put PIA I A/B into DDR Mode")
+            #                                +++----------- 101 = Set Pulse mode output on control lines
+            #                                   +---------- 1   = Set PIA Interface A/B to IO-Mode
+            #                                    ++-------  00  = Set IRQ to OFF
+            self.emit.createcode("STA", "PIA_CONTROL_A")
+            self.emit.createcode("STA", "PIA_CONTROL_B")
+            self.emit.createcode("RTS")
+
+
+
+
     def emit_transmittimer(self):
         # configure timer 2 to one shot timer mode for work around the acia6551 transmit bug
         self.emit.createcode("LDA", "VIAACR", "Put Timer 2 into One Shot Mode", name="init_transmittimer")
@@ -827,9 +866,14 @@ class initasm:
         # start timer with specific timeout
         # Values: 600us = 0x0258, 800us = 0x0320, 1000us = 0x03E8 for 19200 baud
         # Values: 1200us = 0x480, 1600us = 0x0640, 2000us = 0x07d0 for 9600 baud
-        self.emit.createcode("LDA", "#$20", "set timer to count parallel to transmit data", name="start_transmittimer")
+        # Values for 2 Mhz
+        # Values: 600us = 0x480, 800us = 0x0640 for 19200 Baud
+        freq = "%04x" % int(0x0481 * self.cpufreq)
+        freqhi = "%s" % freq[0:2]
+        freqlo = "%s" % freq[2:4]
+        self.emit.createcode("LDA", "#$%s" % freqlo, "set timer to count parallel to transmit data", name="start_transmittimer")
         self.emit.createcode("STA", "VIAT2CL", "see table above for time")
-        self.emit.createcode("LDA", "#$03")
+        self.emit.createcode("LDA", "#$%s" % freqhi)
         self.emit.createcode("STA", "VIAT2CH", "write in high order counter, this will start the timer")
         self.emit.createcode("RTS")
 
