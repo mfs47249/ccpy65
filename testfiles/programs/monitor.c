@@ -41,6 +41,30 @@ void resetterminal() {
     }
 }
 
+int terminal(ADDRESSPTR cmdline) {
+    ADDRESSPTR p;
+    byte doloop;
+    char inchar;
+
+    println("");
+    println("mini Term startet, every Input");
+    println("sets the PIA Port B and strobes CB2");
+    println("control-Z exits.");
+    doloop = 1;
+    p = 0x7832;
+    while (doloop) {
+        inchar = getch();
+        if (inchar == 0x1A) {
+            // if control-z is pressed, leave loop
+            doloop = 0;
+        } else {
+            poke(p,inchar);
+        }
+    }
+    println("done");
+    return 0;
+}
+
 void printuptime(long interval) {
     longlong ticks;
     longlong usec;
@@ -356,6 +380,14 @@ int analyse() {
         }
     }
     if (notfound) {
+        strcpy(search_buf, "term");
+        result = findincmd();
+        if (result == 0) {
+            terminal(cmd_buf);
+            notfound = 0;
+        }
+    }
+    if (notfound) {
         strcpy(search_buf, "set");
         result = findincmd();
         if (result == 0) {
@@ -450,9 +482,6 @@ int main(int argc, char ADDRESSPTR) {
     ADDRESSPTR funcptr;
     long ti;
 
-    ti = 10000;
-    timerinterval = ti;
-    settimer(ti);
     state = 0;
     retval = 0;
     inputs = 0;

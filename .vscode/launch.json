@@ -44,8 +44,8 @@
                      "-I", "libfuncs/numberconvert",
                      "-I", "libfuncs/memory",
                      "-I", "libfuncs/misc",
-                     "--stackstart", "0x4000",
-                     "--varstart",   "0x3000",
+                     "--stackstart", "0x7000",
+                     "--varstart",   "0x6000",
                      "--progstart",  "0x8000",
                      "--modell", "michaels_first_pcb",
                      "monitor.c"

@@ -843,9 +843,6 @@ class initasm:
             self.emit.createcode("STA", "PIA_CONTROL_B")
             self.emit.createcode("RTS")
 
-
-
-
     def emit_transmittimer(self):
         # configure timer 2 to one shot timer mode for work around the acia6551 transmit bug
         self.emit.createcode("LDA", "VIAACR", "Put Timer 2 into One Shot Mode", name="init_transmittimer")
