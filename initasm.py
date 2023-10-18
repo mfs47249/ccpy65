@@ -329,7 +329,8 @@ class initasm:
         emit.createcode("STA", "t1calledsubroutine_1")
         # initialize timer interval (used for calculation in the gettimer() function)
         # set timer to 0x270e * cpu freq
-        freq = "%04x" % int(9998 * self.cpufreq)
+        delay = int(9998 * self.cpufreq)
+        freq = "%04x" % delay
         freqhi = "%s" % freq[0:2]
         freqlo = "%s" % freq[2:4]
         emit.createcode("LDA", "#$%s" % freqlo, "Initialize Timer to 10ms")
@@ -842,9 +843,6 @@ class initasm:
             self.emit.createcode("STA", "PIA_CONTROL_A")
             self.emit.createcode("STA", "PIA_CONTROL_B")
             self.emit.createcode("RTS")
-
-
-
 
     def emit_transmittimer(self):
         # configure timer 2 to one shot timer mode for work around the acia6551 transmit bug
