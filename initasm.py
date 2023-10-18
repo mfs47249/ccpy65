@@ -46,6 +46,7 @@ class initasm:
         if self.modelldescription == "beneater_breadboard":
             self.sevensegmentenabled = True
             self.lcdenabled = True
+            self.cpufreq = 1.0
         elif self.modelldescription == "michaels_first_pcb":
             self.sevensegmentenabled = False
             self.lcdenabled = False
