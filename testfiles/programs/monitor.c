@@ -485,6 +485,7 @@ int main(int argc, char ADDRESSPTR) {
     state = 0;
     retval = 0;
     inputs = 0;
+    println();
     println("START mon...:");
     strcpy(cmd_buf, "");
     while (retval == 0) {
