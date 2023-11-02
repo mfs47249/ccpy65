@@ -365,6 +365,8 @@ class initasm:
         emit.insertinline("JSR", "_OUTPUTCHAR", 0)
         emit.insertinline("JSR", "_UNIREG0_DECIMAL", 0)
         emit.insertinline("JSR", "_prt_global_memarea", 0)
+        # restart Monitorprogram, comment out, if jump to wozmon is required
+        # emit.insertinline("JMP", "programstart", 0)
         # call wozmon when program is finished, comment out, when not using wozmon
         emit.insertinline("JMP", "wozmonentrypoint", 0, name="_dowozmanentrypoint")
         # in case of not using the wozmon, you can use this code for entering endless loop
@@ -834,16 +836,61 @@ class initasm:
             #                                    ++-------  00  = Set IRQ to OFF
             self.emit.createcode("STA", "PIA_CONTROL_A")
             self.emit.createcode("STA", "PIA_CONTROL_B")
-            self.emit.createcode("LDA", "#$FF")
+            self.emit.createcode("LDA", "#$FF", "Set all Pins to Output Mode")
             self.emit.createcode("STA", "PIA_INTERFACE_A")
             self.emit.createcode("STA", "PIA_INTERFACE_B")
-            self.emit.createcode("LDA", "#%00101100", "Put PIA I A/B into DDR Mode")
-            #                                +++----------- 101 = Set Pulse mode output on control lines
+            self.emit.createcode("LDA", "#%00111100", "Put PIA I A/B into DDR Mode")
+            #                                +++----------- 111 = Set CA2 to high
             #                                   +---------- 1   = Set PIA Interface A/B to IO-Mode
             #                                    ++-------  00  = Set IRQ to OFF
             self.emit.createcode("STA", "PIA_CONTROL_A")
+            self.emit.createcode("LDA", "#%00111100", "Put PIA I A/B into DDR Mode")
+            #                                +++----------- 111 = Set CB2 to high
+            #                                   +---------- 1   = Set PIA Interface A/B to IO-Mode
+            #                                    ++-------  00  = Set IRQ to OFF
             self.emit.createcode("STA", "PIA_CONTROL_B")
             self.emit.createcode("RTS")
+            #
+            self.emit.createcode("PHA", "", "save accu", name="lowCB2")
+            self.emit.createcode("LDA", "PIA_CONTROL_B")
+            self.emit.createcode("AND", "#%11110111", "Set CB2 to low")
+            self.emit.createcode("STA", "PIA_CONTROL_B")
+            self.emit.createcode("PLA")
+            self.emit.createcode("RTS")
+            #
+            self.emit.createcode("PHA", "", "save accu", name="highCB2")
+            self.emit.createcode("LDA", "PIA_CONTROL_B")
+            self.emit.createcode("ORA", "#%00111000", "Set CB2 to high")
+            self.emit.createcode("STA", "PIA_CONTROL_B")
+            self.emit.createcode("PLA")
+            self.emit.createcode("RTS")
+            #
+            # set pb7 to low for starting temperatur measurement
+            self.emit.createcode("PHA", "", "save accu", name="setbp7")
+            self.emit.createcode("PLA")
+            self.emit.createcode("RTS")
+            #
+            self.emit.createcode("PHX", "", "save x", name="setpwm")
+            self.emit.createcode("TAX")
+            self.emit.createcode("LDA", "pwmconsttab,X")
+            self.emit.createcode("STA", "PIA_INTERFACE_B")
+            self.emit.createcode("PLX")
+            self.emit.createcode("RTS")
+            self.emit.createcode("BYTE", "$ff,$7f,$3f,$1f,$0f,$07,$03,$01,$00", name="pwmconsttab")
+            #
+            self.emit.createcode("PHA", "", "save accu", name="startmeasurement")
+            self.emit.createcode("LDA", "#$00")
+            self.emit.createcode("STA", "PIA_INTERFACE_B")
+            self.emit.createcode("PLA")
+            self.emit.createcode("RTS")
+            #
+            self.emit.createcode("PHA", "", "save accu", name="stopmeasurement")
+            self.emit.createcode("LDA", "#$FF")
+            self.emit.createcode("STA", "PIA_INTERFACE_B")
+            self.emit.createcode("PLA")
+            self.emit.createcode("RTS")
+
+
 
     def emit_transmittimer(self):
         # configure timer 2 to one shot timer mode for work around the acia6551 transmit bug

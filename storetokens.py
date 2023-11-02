@@ -239,6 +239,7 @@ class storetokens:
         self.addmne("_PLX")   # pop X
         self.addmne("_PLY")   # pop Y
         self.addmne("_BRA")   # unconditional branch
+        self.addmne("_WAI")   # wait instruction, waits until next IRQ
 
     def setnamespace(self, namespace):
         self.namespace = namespace
