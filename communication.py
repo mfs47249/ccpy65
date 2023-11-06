@@ -410,6 +410,7 @@ pars.add_argument("--fastmode", help="setting communication to fast method", act
 pars.add_argument("--testmode", help="set specific testmode")
 pars.add_argument("--length", help="set length of data packet (usually 64")
 pars.add_argument("--datafile", help="set path to datafile")
+pars.add_argument("--serialdevice", help="set serial device (e.g. COM3, /dev/ttyS1)")
 args = pars.parse_args()
 packetlength = 64
 if not args:
@@ -430,22 +431,31 @@ if args.fastmode:
     datatransfer = "fastmode"
 if args.length:
     packetlength = int(args.length)
+#
+if args.serialdevice:
+    serialdev = args.serialdevice
+else:
+    serialdev = None
+#
 if args.datafile:
     towritedata = open(args.datafile, "rb")
 else:
     print("sys.platform is:%s" % sys.platform)
-    # Microsoft Windows Version of Path on my Computer (insert your path here)
-    if sys.platform == "win32":
-        print("open data for win32 platform")
-        towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
-    if sys.platform == "cygwin":
-        print("open data for win32 platform with cygwin")
-        towritedata = open("C:\\Users\\mf\\github\\ccpy65\\asmtest\\a.out", "rb")
-    # Apple Macintosh Version of Path on my Computer
-    if sys.platform == "darwin":
-        towritedata = open("a.out", "rb")
-    if sys.platform == "linux":
-        towritedata = open("/home/mf/github/ccpy65/asmtest/a.out", "rb")
+    if os.path.exists("a.out"):
+        # Microsoft Windows Version of Path on my Computer (insert your path here)
+        if sys.platform == "win32":
+            print("open data for win32 platform")
+            towritedata = open("a.out", "rb")
+        if sys.platform == "cygwin":
+            print("open data for win32 platform with cygwin")
+            towritedata = open("a.out", "rb")
+        # Apple Macintosh Version of Path on my Computer
+        if sys.platform == "darwin":
+            towritedata = open("a.out", "rb")
+        if sys.platform == "linux":
+            towritedata = open("a.out", "rb")
+    else:
+        print("a.out does not exist")
 #
 newdata = towritedata.read()
 towritedata.close()
@@ -466,9 +476,11 @@ while tryserial < 10:
     try:
         # this is the windows version of my serial connection 
         if sys.platform == "win32":
-            for port in comports():
-                print(port)
-            comm = SerialConn("COM4")
+            if not serialdev:
+                for port in comports():
+                    print(port)
+            else:
+                comm = SerialConn(serialdev)
         # this is the apple macintosh version of my serial connection
         if sys.platform == "darwin":
             for port in comports():
@@ -484,7 +496,7 @@ while tryserial < 10:
             comm = SerialConn("/dev/ttyS3")
         tryserial = 10;
     except:
-        print("Problems to open the serial connection, is your terminal program running?")
+        print("Problems to open the serial connection:%s, is your terminal program running?" % serialdev)
         if tryserial >= 9:
             print("Terminating....")
             sys.exit(1)
