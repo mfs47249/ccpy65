@@ -6,11 +6,8 @@ int main(int argc, char ADDRESSPTR) {
     byte idx, in;
     char ch, inchar;
     ADDRESSPTR funcptr;
-    longlong timerinterval;
 
     errno = 1;
-    timerinterval = 50000;
-    settimer(timerinterval);
     state = 0;
     retval = 0;
     println("Serialtest:");

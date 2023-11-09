@@ -3830,7 +3830,7 @@ class codeemitter:
                 print("datatype not valid in internal function %s(), datatype was:%s" % (functionname, source_attr))
                 sys.exit(1)
 
-    # gettimer, settimer, _getstack6502, peek, poke, adr
+    # gettimer, settimer, _getstack6502, peek, peekword, poke, adr
     def intfunc_adr(self, functionobj, arglist, line=0):
         debug = False
         functionname = functionobj.getname()
@@ -3850,7 +3850,7 @@ class codeemitter:
                 print("internal function %s() has only one argument, arg was called with %d args: %s" % (functionname, len(arglist), arglist))
                 print("error is in line: %d" % line)
                 sys.exit(1)
-        if functionname == "adr" or functionname == "settimer" or functionname == "peek" or functionname == "poke":
+        if functionname == "adr" or functionname == "settimer" or functionname == "peek" or functionname == "peekword" or functionname == "poke":
             arg = arglist[0]
             if isinstance(arg, list):
                 if arg[0] == "number":
@@ -3891,7 +3891,7 @@ class codeemitter:
         destvarname = deststok.getname()
         destsize = deststok.getsize()
         dest_attr = deststok.getattributehash()
-        if functionname == "adr" or functionname == "settimer" or functionname == "peek" or functionname == "poke":
+        if functionname == "adr" or functionname == "settimer" or functionname == "peek" or functionname == "peekword" or functionname == "poke":
             if self.checkhash(source_attr, "isargument"):
                 frame0 = "_framepointer_0"
                 frame1 = "_framepointer_1"
@@ -4012,10 +4012,25 @@ class codeemitter:
                 self.createcode("LDY", "#0")
                 self.createcode("LDA", "(_zpscratch),Y")
                 self.createcode("STA", "%s_0" % destvarname, "usally in _unireg0")
-                if destsize == 2:
+                if destsize > 1:
                     self.createcode("STZ", "%s_1" % destvarname, "clear upper byte of an int or address var")
-                elif destsize > 3:
-                    self.createcode("STZ", "%s_1" % destvarname, "clear upper byte of an long var")
+                    self.createcode("STZ", "%s_2" % destvarname, "clear upper byte of an long var")
+                    self.createcode("STZ", "%s_3" % destvarname, "clear upper byte of an long var")
+        elif functionname == "peekword":
+            if sourcetype == "int" or sourcetype == "long" or sourcetype == "longlong" or sourcetype == "ADDRESSPTR":
+                self.createcode("LDY", "#%s" % sourcevarname, "peekword, get Value of %s" % sourcevarname)
+                self.createcode("LDA", "(%s),Y" % frame0)
+                self.createcode("STA", "_zpscratch_0", "save for indirect access")
+                self.createcode("INY")
+                self.createcode("LDA", "(%s),Y" % frame0)
+                self.createcode("STA", "_zpscratch_1", "save for indirect access")
+                self.createcode("LDY", "#0")
+                self.createcode("LDA", "(_zpscratch),Y")
+                self.createcode("STA", "%s_0" % destvarname, "usally in _unireg0")
+                self.createcode("INY")
+                self.createcode("LDA", "(_zpscratch),Y")
+                self.createcode("STA", "%s_1" % destvarname, "usally in _unireg0")
+                if destsize > 2:
                     self.createcode("STZ", "%s_2" % destvarname, "clear upper byte of an long var")
                     self.createcode("STZ", "%s_3" % destvarname, "clear upper byte of an long var")
         elif functionname == "poke":

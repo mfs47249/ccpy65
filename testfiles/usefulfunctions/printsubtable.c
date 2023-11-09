@@ -12,6 +12,8 @@ ADDRESSPTR nextafterterminator(ADDRESSPTR s) {
     return p;
 }
 
+/*  we can now use peekword() for this feature
+
 int getintataddress(ADDRESSPTR q) {
     ADDRESSPTR p;
     int ad, x;
@@ -23,6 +25,7 @@ int getintataddress(ADDRESSPTR q) {
     shiftleft(x,8);
     return ad + x;
 }
+*/
 
 void printsubtable() {
     ADDRESSPTR p, q;
@@ -38,12 +41,12 @@ void printsubtable() {
     while (endofloop) {
         strcpy(subname, p);
         q = nextafterterminator(p);
-        ad = getintataddress(q);
+        ad = peekword(q);
         le = ad - le;
         printlnhex(ad, " is:", subname, " len:", le);
         le = ad;
         p = q + 2;
-        ad = getintataddress(p);
+        ad = peekword(p);
         if (ad == 0xACF1) {
             endofloop = 0;
         }

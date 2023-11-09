@@ -573,7 +573,7 @@ class dotoken:
             functionnamespace = foundtoken.getnamespace()
             functionname = foundtoken.getname()
             if functionnamespace == "_INTERNAL":
-                if functionname == "adr" or functionname == "peek" or functionname == "poke":
+                if functionname == "adr" or functionname == "peek" or functionname == "peekword" or functionname == "poke":
                     self.code.intfunc_adr(foundtoken, arglist, line=self.t_linenumber)
                 elif functionname == "_getstack6502":
                     self.code.intfunc_adr(foundtoken, arglist, line=self.t_linenumber)

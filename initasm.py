@@ -49,6 +49,7 @@ class initasm:
             self.cpufreq = 1.0
         elif self.modelldescription == "michaels_first_pcb":
             self.sevensegmentenabled = False
+            self.tempmeasurementenabled = True
             self.lcdenabled = False
             self.cpufreq = 2.0
         else:
@@ -263,6 +264,12 @@ class initasm:
         self.createvar("byte", "type_byte", 1,  "lcd_update_hours")
         self.createvar("int", "type_int", 1,  "lcd_update_days") 
         #
+        #
+        # create var for temp measurement, 16bit value stores usec since start of measurement
+        if self.tempmeasurementenabled:
+            self.create_c_global("int", "type_int", 1, "temp_time")
+            self.createvar("byte", "type_byte", 1, "temp_time_flag")
+            self.createvar("byte", "type_byte", 1, "min_fanspeed")
         # define adjustment and info var for timer 1 clock interval
         #
         #
@@ -308,29 +315,50 @@ class initasm:
             emit.createcode("BRA", "lowleveldebuginitcounter")
         else:
             emit.createcode("BRA", "programstart")
+            #
+            # subroutinetable is a table of functions in the monitor, at the moment
+            # this is not used, but can be used for a kind of "dynamic linking" in 
+            # the future
+            #
             emit.createcode("WORD", "subroutinetable")
+            #
+            # start of program
+            #
             emit.insertinline("SEI", "", 0, name="programstart")
             emit.insertinline("CLD", "", 0)
+        #
         # clear 6502 stack and set stackpointer to $ff
+        #
         emit.createcode("LDX", "#0")
         emit.createcode("STZ", "$100,X", "clear stack-memory", name="_init_6502_stack_memory")
         emit.createcode("INX")
         emit.createcode("BNE", "_init_6502_stack_memory")
         emit.createcode("LDX", "#$FF")
         emit.createcode("TXS", "")
+        #
+        #  set C-stack to upper memory location
+        #
         emit.createcode("JSR", "setuserstack")
+        #
+        #  set adjustable IRQ vector, this is used if changeing IRQ vector is needed on the fly
+        #
         emit.createcode("LDA", "#<IRQhandler", "load low byte of irq-startaddress")
         emit.createcode("STA", "irq_vector_0")
         emit.createcode("LDA", "#>IRQhandler", "load high byte of irq-startaddress")
         emit.createcode("STA", "irq_vector_1")
         #
+        #   set adjustable timer IRQ extension, this is used if a program needs to extend
+        #   the timer IRQ on the fly
+        #
         emit.createcode("LDA", "#<t1calledsubdummy")
         emit.createcode("STA", "t1calledsubroutine_0")
         emit.createcode("LDA", "#>t1calledsubdummy")
         emit.createcode("STA", "t1calledsubroutine_1")
+        #
         # initialize timer interval (used for calculation in the gettimer() function)
         # set timer to 0x270e * cpu freq
-        delay = int(9998 * self.cpufreq)
+        #
+        delay = int(10000 * self.cpufreq)
         freq = "%04x" % delay
         freqhi = "%s" % freq[0:2]
         freqlo = "%s" % freq[2:4]
@@ -338,6 +366,11 @@ class initasm:
         emit.createcode("STA", "t1interval_0")
         emit.createcode("LDA", "#$%s" % freqhi)
         emit.createcode("STA", "t1interval_1")
+        #
+        #
+        #  init hardware
+        #
+        #
         #
         if self.lcdenabled:
             emit.insertinline("JSR", "configure_lcd", 0)
@@ -347,22 +380,32 @@ class initasm:
         if self.sevensegmentenabled:
             emit.insertinline("JSR", "init_seven_segment", 0)
         emit.insertinline("JSR", "initPIA6521", 0)
-        # initializing VIA PA for debugging
+        if self.tempmeasurementenabled:
+            emit.insertinline("JSR", "inittempcontrol", 0)
+        #
+        #
+        #  start main function of the C-program
+        #
         #
         emit.insertinline("CLI", "", 0)
         emit.createcode("STZ", "global_errno_0")
         emit.createcode("STZ", "global_errno_1")
         #emit.insertinline("JSR", "_lcd_start_message", 0)
         emit.createcode("JSR", "main", "call the c main function without any argument")
+        #
+        # this code runs after exiting the C main() function, normaly this will never happen
         # clear upper 32 bit of _unireg0 because _OUT_UNIREG show only the first 32 bit
         emit.createcode("LDA", "#0")
         emit.createcode("STA", "_uniregA_0")
         emit.createcode("STA", "_uniregA_1")
         emit.createcode("STA", "_uniregA_2")
         emit.createcode("STA", "_uniregA_3")
+        #
+        # print return value of the main() function in HEX, only the lower 32 bits
         emit.insertinline("JSR", "_OUT_UNIREG0", 0)
         emit.insertinline("LDA", "#','", 0)
         emit.insertinline("JSR", "_OUTPUTCHAR", 0)
+        # print return value of the main() function in DECIMAL, only the lower 32 bits
         emit.insertinline("JSR", "_UNIREG0_DECIMAL", 0)
         emit.insertinline("JSR", "_prt_global_memarea", 0)
         # restart Monitorprogram, comment out, if jump to wozmon is required
@@ -383,30 +426,44 @@ class initasm:
         emit.insertinline(".ASCIIZ", "\"program terminated\"", 0, name="_MESS_TERMINATED")
         # emit.insertinline(".ASCIIZ", "\"IRQ/BRK detected\"", 0, name="_IRQ_BRK_MESSAGE")
         emit.insertinline(".ASCIIZ", "\"system startet\"", 0, name="_START_MESSAGE")
+        #
+        #
         # interrupt handler entry point
+        #
+        #
         emit.insertinline("JMP", "(irq_vector)", 0,name="IRQstart")
+        #
+        # IRQ handler will be called indirect, see line above, this is used if the monitor itself
+        # will be loaded in ram for testing
+        #
         emit.createcode("PHA", "", "save registers", name="IRQhandler")
         emit.createcode("PHX")
         emit.createcode("PHY")
         emit.insertinline("JSR", "aciairqhandler", 0)
         emit.insertinline("JSR", "irq_handler_transmittimer", 0)
         emit.insertinline("JSR", "irq_handler_clocktimer", 0)
+        if self.tempmeasurementenabled:
+            emit.insertinline("JSR", "irq_handler_tempmeasurement", 0)
         if self.sevensegmentenabled:
             emit.insertinline("JSR", "seven_segment_irq_handler", 0)
         emit.createcode("PLY")
         emit.createcode("PLX")
         emit.createcode("PLA")
         emit.insertinline("RTI", "", 0)
-        # print startmessage on lcd display
-        emit.createcode("LDX", "#0", 0, name="_lcd_start_message")
-        emit.createcode("LDA", "_START_MESSAGE,X", 0, name="_lcd_start_message_loop")
-        emit.createcode("BEQ", "_lcd_start_message_rts")
-        emit.insertinline("JSR", "print_lcdchar",0)
-        emit.createcode("INX")
-        emit.createcode("BRA", "_lcd_start_message_loop")
-        emit.createcode("RTS", "", "", name="_lcd_start_message_rts")
+        #
+        # print startmessage on lcd display, only if lcd is enabled
+        #
+        if self.lcdenabled:
+            emit.createcode("LDX", "#0", 0, name="_lcd_start_message")
+            emit.createcode("LDA", "_START_MESSAGE,X", 0, name="_lcd_start_message_loop")
+            emit.createcode("BEQ", "_lcd_start_message_rts")
+            emit.insertinline("JSR", "print_lcdchar",0)
+            emit.createcode("INX")
+            emit.createcode("BRA", "_lcd_start_message_loop")
+            emit.createcode("RTS", "", "", name="_lcd_start_message_rts")
         #
         # entry point for NMI Routine
+        #
         emit.createcode("PHA", "", "save all registers in NMI Routine", name="NMIstart")
         emit.createcode("PHX")
         emit.createcode("PHY")
@@ -465,6 +522,7 @@ class initasm:
         self.definecompilerfunction("integer", "type_integer",argcount=1)
         self.definecompilerfunction("adr", "type_pointer",argcount=1)
         self.definecompilerfunction("peek", "type_byte",argcount=1)
+        self.definecompilerfunction("peekword", "type_byte",argcount=1)
         self.definecompilerfunction("poke", "type_void",argcount=2)
         self.definecompilerfunction("_getstack6502", "type_integer",argcount=0)
         self.definecompilerfunction("gettimer", "type_longlong", argcount=0)
@@ -835,22 +893,63 @@ class initasm:
             #                                   +---------- 0   = Set PIA Interface A/B to DDR-Mode
             #                                    ++-------  00  = Set IRQ to OFF
             self.emit.createcode("STA", "PIA_CONTROL_A")
+            self.emit.createcode("LDA", "#%00000011", "Put PIA I B into DDR Mode")
+            #                                +++----------- 000 = Set IRQ to OFF
+            #                                   +---------- 0   = Set PIA Interface A/B to DDR-Mode
+            #                                    ++-------  11  = Set IRQ to positive edge on CB1
             self.emit.createcode("STA", "PIA_CONTROL_B")
             self.emit.createcode("LDA", "#$FF", "Set all Pins to Output Mode")
             self.emit.createcode("STA", "PIA_INTERFACE_A")
             self.emit.createcode("STA", "PIA_INTERFACE_B")
-            self.emit.createcode("LDA", "#%00111100", "Put PIA I A/B into DDR Mode")
-            #                                +++----------- 111 = Set CA2 to high
+            self.emit.createcode("LDA", "#%00111100", "Put PIA I A into DDR Mode")
+            #                                +++----------- 111 = Set CA2 to High
             #                                   +---------- 1   = Set PIA Interface A/B to IO-Mode
             #                                    ++-------  00  = Set IRQ to OFF
             self.emit.createcode("STA", "PIA_CONTROL_A")
-            self.emit.createcode("LDA", "#%00111100", "Put PIA I A/B into DDR Mode")
-            #                                +++----------- 111 = Set CB2 to high
-            #                                   +---------- 1   = Set PIA Interface A/B to IO-Mode
-            #                                    ++-------  00  = Set IRQ to OFF
-            self.emit.createcode("STA", "PIA_CONTROL_B")
-            self.emit.createcode("RTS")
             #
+            #
+            if self.tempmeasurementenabled:
+                self.emit.createcode("LDA", "#%00111111", "Put PIA I B into DDR Mode", name="inittempcontrol")
+                #                                +++----------- 111 = Set CB2 to high
+                #                                   +---------- 1   = Set PIA Interface A/B to IO-Mode
+                #                                    ++-------  11  = Set IRQ to positive edge on CB1
+                self.emit.createcode("STA", "PIA_CONTROL_B")
+                self.emit.createcode("LDA", "#255")
+                self.emit.createcode("STA", "temp_time_flag")
+                self.emit.createcode("LDA", "#0")
+                self.emit.createcode("STA", "PIA_INTERFACE_B")
+                self.emit.createcode("STZ", "min_fanspeed")
+                self.emit.createcode("LDA", "#7")
+                self.emit.createcode("JSR", "setpwm")
+                self.emit.createcode("RTS")
+            #
+            # PIA A Interrupt Service Routine for Temperatur Measurement via NTC Resistor
+            #
+            if self.tempmeasurementenabled:
+                self.emit.createcode("LDA", "PIA_CONTROL_B", "check for IRQ set on CB1", name="irq_handler_tempmeasurement")
+                self.emit.createcode("BPL", "noirqfromPIACA1")
+                self.emit.createcode("LDA", "PIA_INTERFACE_B", "disable IRQ")
+                self.emit.createcode("LDA", "#$00", "load low value to unload capacitor in temp unit")
+                self.emit.createcode("STA", "PIA_INTERFACE_B", "measurement done")
+                self.emit.createcode("LDA", "temp_time_flag")
+                self.emit.createcode("STA", "global_temp_time_0")
+                self.emit.createcode("STZ", "global_temp_time_1")
+                self.emit.createcode("LDA", "#255")
+                self.emit.createcode("STA", "temp_time_flag", "measurement done, wait until next start")
+                self.emit.createcode("RTS", name="noirqfromPIACA1")
+
+            #
+                self.emit.createcode("STZ", "temp_time_flag", "measurement should start", name="startmeasurement")
+                self.emit.createcode("RTS")
+
+            self.emit.createcode("STA", "PIA_INTERFACE_A", "Store Accu in Port A Dataregister", name="setPORTA")
+            self.emit.createcode("LDA", "PIA_CONTROL_A")
+            self.emit.createcode("AND", "#%11110111", "Set CA2 to low")
+            self.emit.createcode("STA", "PIA_CONTROL_A")
+            self.emit.createcode("ORA", "#%00111000", "Set CA2 to high")
+            self.emit.createcode("STA", "PIA_CONTROL_A")
+            self.emit.createcode("RTS")
+
             self.emit.createcode("PHA", "", "save accu", name="lowCB2")
             self.emit.createcode("LDA", "PIA_CONTROL_B")
             self.emit.createcode("AND", "#%11110111", "Set CB2 to low")
@@ -865,31 +964,17 @@ class initasm:
             self.emit.createcode("PLA")
             self.emit.createcode("RTS")
             #
-            # set pb7 to low for starting temperatur measurement
-            self.emit.createcode("PHA", "", "save accu", name="setbp7")
-            self.emit.createcode("PLA")
-            self.emit.createcode("RTS")
-            #
             self.emit.createcode("PHX", "", "save x", name="setpwm")
             self.emit.createcode("TAX")
             self.emit.createcode("LDA", "pwmconsttab,X")
             self.emit.createcode("STA", "PIA_INTERFACE_B")
             self.emit.createcode("PLX")
+            self.emit.createcode("JSR", "lowCB2")
+            self.emit.createcode("JSR", "highCB2")
             self.emit.createcode("RTS")
+            #
+            #
             self.emit.createcode("BYTE", "$ff,$7f,$3f,$1f,$0f,$07,$03,$01,$00", name="pwmconsttab")
-            #
-            self.emit.createcode("PHA", "", "save accu", name="startmeasurement")
-            self.emit.createcode("LDA", "#$00")
-            self.emit.createcode("STA", "PIA_INTERFACE_B")
-            self.emit.createcode("PLA")
-            self.emit.createcode("RTS")
-            #
-            self.emit.createcode("PHA", "", "save accu", name="stopmeasurement")
-            self.emit.createcode("LDA", "#$FF")
-            self.emit.createcode("STA", "PIA_INTERFACE_B")
-            self.emit.createcode("PLA")
-            self.emit.createcode("RTS")
-
 
 
     def emit_transmittimer(self):
@@ -995,9 +1080,20 @@ class initasm:
         self.emit.createcode("BVC", "end_irq_handler_clocktimer", "branch, if bit 6 is 0, no irq from timer 1")
         self.emit.createcode("LDA", "VIAT1CL", "reset interrupt flag")
         self.emit.createcode("LDA", "VIAT1CH")
+        # if temp measurement is installed, do initialiazation of a new measurement cycle
+        if self.tempmeasurementenabled:
+            self.emit.createcode("LDA", "temp_time_flag")
+            self.emit.createcode("CMP", "#255")
+            self.emit.createcode("BEQ", "contwithlcdupdate")
+            # increment each 10 ms
+            self.emit.createcode("INC", "temp_time_flag")
+            # start loading capacitor
+            self.emit.createcode("LDA", "#255")
+            self.emit.createcode("STA", "PIA_INTERFACE_B", "set PIN to High to load capacitor")
+
         # calculate uptime for the lcd-display and the LED-Display, the system can run without the led but not without the lcd
         # because it will wait for the lcd forever
-        self.emit.createcode("LDA", "lcd_update_ticks", "load lowest tick counter, for check for 100 * 10ms")
+        self.emit.createcode("LDA", "lcd_update_ticks", "load lowest tick counter, for check for 100 * 10ms", name="contwithlcdupdate")
         self.emit.createcode("CMP", "#100", "check for one second gone, only valid if tickrate is 10ms")
         self.emit.createcode("BNE", "irq_handler_clocktimer_do_normal")
         self.emit.createcode("JSR", "lcd_uptime_counter", "calculate uptime in decimal")
@@ -1094,6 +1190,16 @@ class initasm:
         self.emit.createcode("BMI", "lcdcontinueuptime0")
         self.emit.createcode("STZ", "lcd_update_seconds", "set seconds to zero")
         # do minutes
+        if self.tempmeasurementenabled:
+            self.emit.createcode("LDA", "global_temp_time_0")
+            self.emit.createcode("CMP", "#4", "fan will start when value under 4")
+            self.emit.createcode("BPL", "setfantolowvalue")
+            self.emit.createcode("INC", "min_fanspeed")
+            self.emit.createcode("LDA", "#7", "set fan to high value, increase the fan")
+            self.emit.createcode("BRA", "continuewithtempmeasurement")
+            self.emit.createcode("LDA", "min_fanspeed", "fan will reduce flow", name="setfantolowvalue")
+            self.emit.createcode("JSR", "setpwm", name="continuewithtempmeasurement")
+            self.emit.createcode("JSR", "startmeasurement", "start temp measurement every minute")
         self.emit.createcode("CLC")
         self.emit.createcode("LDA", "lcd_update_minutes")
         self.emit.createcode("ADC", "#1")
@@ -1102,6 +1208,8 @@ class initasm:
         self.emit.createcode("BMI", "lcdcontinueuptime0")
         self.emit.createcode("STZ", "lcd_update_minutes", "set minutes to zero")
         # do hours
+        if self.tempmeasurementenabled:
+            self.emit.createcode("DEC", "min_fanspeed")
         self.emit.createcode("CLC")
         self.emit.createcode("LDA", "lcd_update_hours")
         self.emit.createcode("ADC", "#1")

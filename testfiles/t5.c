@@ -1,9 +1,22 @@
 #include <factorial.c>
 #include <printsubtable.c>
 
+void checkabort() {
+    char ch;
+    int count;
+
+    count = avail();
+    if (count > 0) {
+        ch = getch();
+        if (ch == 'q') {
+            _JMP 0x8000;
+        }
+    }
+}
+
 
 long main(int argc, ADDRESSPTR argv) {
-    ADDRESSPTR s, p, f1, f2;
+    ADDRESSPTR s, t, p, f1, f2;
     long i, max, sum;
 
     println("Calculating 100 x");
@@ -18,12 +31,13 @@ long main(int argc, ADDRESSPTR argv) {
             sum = sum + peek(p);
             p = p + 1;
         }
-        println("i:", i, " f1:", f1, " f2:", f2, " sum:", sum);
-        p = adr("_userstack");
-        s = getintataddress(p);
-        //Okrintln("Userstack:", s, " iterations:", i);
-        // _JSR $AC63;
-        factorialtest();
+        // println("i:", i, " f1:", f1, " f2:", f2, " sum:", sum);
+        p = adr("lcd_update_seconds");
+        // s = getintataddress(p);
+        t = peekword(p);
+        println("getintaddress:", s, " peekword:", t);
         i = i + 1;
+        printsubtable();
+        checkabort();
     }
 }

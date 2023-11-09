@@ -19,6 +19,8 @@ void help() {
     println("su(b) start    - call program as subroutine at start");
     println("up(time)       - show system uptime");
     println("woz(mon)       - start wozmon");
+    println("ntemp          - set new fanspeed from 0 to 7");
+    println("gtemp          - get actual temp-value")
     println("clear          - clear screen and init vt100 with ESC c");
     println("he(lp)         - show this help");
 }
@@ -41,29 +43,68 @@ void resetterminal() {
     }
 }
 
-int terminal(ADDRESSPTR cmdline) {
+
+int gettemp() {
     ADDRESSPTR p;
+    int value;
+
+    p = adr(temp_time);
+    value = peekword(p);
+    println();
+    println("Temp-Value is:", value);
+}
+
+int settemp(ADDRESSPTR cmdline) {
+    ADDRESSPTR p, st, converr_ptr;
+    long q;
+    byte hexbyte, converr;
+
+    converr_ptr = adr(converr);
+    p = cmdline;
+    p = strtok(p); // skip over "nt" command
+    p = strtok(0); // get first argument, newtemp value
+    q = hex_to_long(p, converr_ptr);
+    if (converr) {
+        println("error converting temp value");
+        return 1;
+    }
+    _LDY #settemp_q; 
+    _LDA (_userstack),Y;
+    _JSR setpwm;
+    println();
+}
+
+int terminal(ADDRESSPTR cmdline) {
     byte doloop;
     char inchar;
 
     println("");
     println("mini Term startet, every Input");
     println("sets the PIA Port B and strobes CB2");
+    println("characters will be echoed here");
     println("control-Z exits.");
     doloop = 1;
-    p = 0x7832;
     while (doloop) {
         inchar = getch();
         if (inchar == 0x1A) {
             // if control-z is pressed, leave loop
             doloop = 0;
         } else {
-            poke(p,inchar);
+            // get content of var inchar in accu
+            _LDY #terminal_inchar; 
+            _LDA (_userstack),Y;
+            // call setport to write accu to io-port and strobe CB2
+            _JSR setPORTA;
+        }
+        print(inchar);
+        if (inchar == 13) {
+            println();
         }
     }
     println("done");
     return 0;
 }
+
 
 void printuptime(long interval) {
     longlong ticks;
@@ -447,6 +488,22 @@ int analyse() {
         if (result == 0) {
             println();
             printuptime(timerinterval);
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "ntemp");
+        result = findincmd();
+        if (result == 0) {
+            settemp(cmd_buf);
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "gtemp");
+        result = findincmd();
+        if (result == 0) {
+            gettemp();
             notfound = 0;
         }
     }

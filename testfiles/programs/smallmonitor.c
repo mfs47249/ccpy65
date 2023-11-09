@@ -5,10 +5,8 @@
 #include <findinstrings.c>
 #include <convert_to_bin.c>
 #include <dumpmemory.c>
-// #include <printsubtable.c>
+#include <printsubtable.c>
 // #include <factorial.c>
-
-long timerinterval;
 
 int dump_memory(ADDRESSPTR cmd_line) {
     ADDRESSPTR p, q, converr_ptr;
@@ -224,23 +222,30 @@ void process_buffer() {
 }
 
 int terminal(ADDRESSPTR cmdline) {
-    ADDRESSPTR p;
     byte doloop;
     char inchar;
 
     println("");
     println("mini Term startet, every Input");
     println("sets the PIA Port B and strobes CB2");
+    println("characters will be echoed here");
     println("control-Z exits.");
     doloop = 1;
-    p = 0x7832;
     while (doloop) {
         inchar = getch();
         if (inchar == 0x1A) {
             // if control-z is pressed, leave loop
             doloop = 0;
         } else {
-            poke(p,inchar);
+            // get content of var inchar in accu
+            _LDY #terminal_inchar; 
+            _LDA (_userstack),Y;
+            // call setport to write accu to io-port and strobe CB2
+            _JSR setPORTA;
+        }
+        print(inchar);
+        if (inchar == 13) {
+            println();
         }
     }
     println("done");
@@ -278,6 +283,36 @@ int setmemory(ADDRESSPTR cmdline) {
     return 0;
 }
 
+int gettemp() {
+    ADDRESSPTR p;
+    int value;
+
+    p = adr(temp_time);
+    value = peekword(p);
+    println();
+    println("Temp-Value is:", value);
+}
+
+int settemp(ADDRESSPTR cmdline) {
+    ADDRESSPTR p, st, converr_ptr;
+    long q;
+    byte hexbyte, converr;
+
+    converr_ptr = adr(converr);
+    p = cmdline;
+    p = strtok(p); // skip over "nt" command
+    p = strtok(0); // get first argument, newtemp value
+    q = hex_to_long(p, converr_ptr);
+    if (converr) {
+        println("error converting temp value");
+        return 1;
+    }
+    _LDY #settemp_q; 
+    _LDA (_userstack),Y;
+    _JSR setpwm;
+    println();
+}
+
 int analyse() {
     ADDRESSPTR p, chptr, tok;
     char ch, space;
@@ -291,6 +326,22 @@ int analyse() {
         result = findincmd();
         if (result == 0) {
             setmemory(cmd_buf);
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "ntemp");
+        result = findincmd();
+        if (result == 0) {
+            settemp(cmd_buf);
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "gtemp");
+        result = findincmd();
+        if (result == 0) {
+            gettemp();
             notfound = 0;
         }
     }
@@ -321,6 +372,15 @@ int analyse() {
         if (result == 0) {
             p = adr(cmd_buf);
             jsr_program(p);
+            notfound = 0;
+        }
+    }
+    if (notfound) {
+        strcpy(search_buf, "prtab");
+        result = findincmd();
+        if (result == 0) {
+            println();
+            printsubtable();
             notfound = 0;
         }
     }
@@ -357,9 +417,6 @@ int main(int argc, char ADDRESSPTR) {
     ADDRESSPTR funcptr;
     long ti;
 
-    ti = 10000;
-    timerinterval = ti;
-    settimer(ti);
     state = 0;
     retval = 0;
     inputs = 0;
