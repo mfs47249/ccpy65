@@ -976,7 +976,6 @@ class initasm:
             #
             self.emit.createcode("BYTE", "$ff,$7f,$3f,$1f,$0f,$07,$03,$01,$00", name="pwmconsttab")
 
-
     def emit_transmittimer(self):
         # configure timer 2 to one shot timer mode for work around the acia6551 transmit bug
         self.emit.createcode("LDA", "VIAACR", "Put Timer 2 into One Shot Mode", name="init_transmittimer")
@@ -1192,7 +1191,7 @@ class initasm:
         # do minutes
         if self.tempmeasurementenabled:
             self.emit.createcode("LDA", "global_temp_time_0")
-            self.emit.createcode("CMP", "#4", "fan will start when value under 4")
+            self.emit.createcode("CMP", "#5", "fan will start when value under 5")
             self.emit.createcode("BPL", "setfantolowvalue")
             self.emit.createcode("INC", "min_fanspeed")
             self.emit.createcode("LDA", "#7", "set fan to high value, increase the fan")

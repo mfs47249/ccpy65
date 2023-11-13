@@ -56,8 +56,6 @@ class handleblocks:
         # blockname = lastblockonstack.getname()
         return lastblockonstack
 
-
-
     def getlastfunkstack(self):
         return self.functionstack[-1]
 

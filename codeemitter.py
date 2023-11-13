@@ -183,10 +183,12 @@ class subroutine:
     assemblerline = ""
     codelines = []
     subroutinename = ""
+    addtotable = False
 
-    def __init__(self, subroutinename):
+    def __init__(self, subroutinename, addtotable):
         self.codelines = []
         self.subroutinename = subroutinename
+        self.addtotable = addtotable
         startline = codeline(subroutinename, "", "", "")
         self.codelines.append(startline)
 
@@ -205,6 +207,9 @@ class subroutine:
 
     def getlist(self):
         return self.codelines
+
+    def getaddtotable(self):
+        return self.addtotable
 
 class codeemitter:
     assemberline = 0
@@ -334,7 +339,7 @@ class codeemitter:
         self.linecomment = ";%s" % comment
 
     def addstring(self, stringname, string):
-        self.actualsubroutine = subroutine(stringname)
+        self.actualsubroutine = subroutine(stringname, False)
         self.createsubroutine = True
         self.nonewsub = False
         self.createcode("ASCIIZ", string, "String added name:%s" % stringname)
@@ -342,7 +347,7 @@ class codeemitter:
         self.subroutinebuffer.append(self.actualsubroutine)
         self.actualsubroutine = None
 
-    def startconvertedsubroutine(self, subname):
+    def startconvertedsubroutine(self, subname, addtotable=False):
         if subname == "pfloatMX_w":
             xxx = 0
         self.createsubroutine = True
@@ -351,7 +356,7 @@ class codeemitter:
                 self.nonewsub = True
                 return
         self.nonewsub = False
-        self.actualsubroutine = subroutine(subname)
+        self.actualsubroutine = subroutine(subname, addtotable)
 
     def stopconvertedsubroutine(self, noreturn=False):
         if self.nonewsub:
@@ -742,21 +747,35 @@ class codeemitter:
         byteindex = 0
         ureg = self.expr_stack_index + "_%d" % byteindex
         self.log.writelog("codeemitter/pushvaluetostack", "value:%08x" % int(avalue))
-
+        int_value = int(avalue)
+        if int_value == 99:
+            x = 0
         if asize == 1:
-            hexvalue = "%02x" % int(avalue)
+            if int_value < 0:
+                hexvalue = hex(int_value + (1<<8))[2:]
+            else:
+                hexvalue = "%02x" % int_value
             indx = 0
             idxlist = [ 0 ]
         if asize == 2:
-            hexvalue = "%04x" % int(avalue)
+            if int_value < 0:
+                hexvalue = hex(int_value + (1<<16))[2:]
+            else:
+                hexvalue = "%04x" % int_value
             indx = 2
             idxlist = [ 2, 0 ]
         if asize == 4:
-            hexvalue = "%08x" % int(avalue)
+            if int_value < 0:
+                hexvalue = hex(int_value + (1<<32))[2:]
+            else:
+                hexvalue = "%08x" % int_value
             indx = 6
             idxlist = [ 6, 4, 2, 0 ]
         if asize == 8:
-            hexvalue = "%016x" % int(avalue)
+            if int_value < 0:
+                hexvalue = hex(int_value + (1<<64))[2:]
+            else:
+                hexvalue = "%016x" % int(avalue)
             indx = 14
             idxlist = [ 14, 12, 10, 8, 6, 4, 2, 0]
         oldhexbyte = "--"
@@ -898,7 +917,7 @@ class codeemitter:
             convertedsubname = "addonstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling ADDONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","ADDONSTACK")
         # set pointer for 2nd stackmember in unireg6
@@ -972,7 +991,7 @@ class codeemitter:
             convertedsubname = "subonstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling SUBONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         self.createcode("","","SUBONSTACK")
         size = self.eval_opsize
         self.log.writelog("codeemitter/subonstack", "size:%s" % (size))
@@ -1058,7 +1077,7 @@ class codeemitter:
             convertedsubname = "mulonstack_"+str(self.eval_opsize)
         if self.createvirtsub:
             self.createcode("","","Calling MULONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","MULONSTACK")
         debug = self.debug_espression
@@ -1340,7 +1359,7 @@ class codeemitter:
             convertedsubname = "divonstack_"+str(self.eval_opsize)
         if self.createvirtsub:
             self.createcode("","","Calling DIVONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","DIVONSTACK")
         debug = self.debug_espression
@@ -1641,7 +1660,7 @@ class codeemitter:
         convertedsubname = "equalonstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling EQUALONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","EQUALSTACK")
         size = self.eval_opsize
@@ -1692,7 +1711,7 @@ class codeemitter:
         convertedsubname = "notequalonstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling NOTEQUALONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","NOTEQUALSTACK")
         size = self.eval_opsize
@@ -1744,7 +1763,7 @@ class codeemitter:
         convertedsubname = "smalleronstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling SMALLERONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","EQUALSMALLER TEST")
         size = self.eval_opsize
@@ -1860,7 +1879,7 @@ class codeemitter:
         convertedsubname = "greateronstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling GREATERONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","EQUALGREATER TEST")
         size = self.eval_opsize
@@ -1978,7 +1997,7 @@ class codeemitter:
         convertedsubname = "eqgreateronstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling EQUALGREATERONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         self.createcode("","","EQUALGREATERSTACK TEST")
         size = self.eval_opsize
@@ -2093,7 +2112,7 @@ class codeemitter:
         convertedsubname = "eqsmalleronstack_"+str(self.eval_opsize) # + '_' + subsalt
         if self.createvirtsub:
             self.createcode("","","Calling EQUALSMALLERONSTACK as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         # ----------------------------------------
         size = self.eval_opsize
         self.log.writelog("codeemitter/equalsmalleronstack", "size:%s" % (size))
@@ -2209,7 +2228,7 @@ class codeemitter:
         convertedsubname = "pushreg%s" % (regname)
         if self.createvirtsub:
             self.createcode("","","Calling pushregistertouserstack as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         self.createcode("SEC")
         self.createcode("LDA", "_userstack_0")
         self.createcode("SBC", "#8")
@@ -2239,7 +2258,7 @@ class codeemitter:
         convertedsubname = "popreg%s" % (regname)
         if self.createvirtsub:
             self.createcode("","","Calling popregisterfromuserstack as virtual Subroutine")
-            self.startconvertedsubroutine(convertedsubname)
+            self.startconvertedsubroutine(convertedsubname, True)
         #self.createcode("JSR", "_OUT_USERSTACK")
         self.createcode("LDY", "#7")
         self.createcode("LDA", "(_userstack),Y", name=subpopreg)
@@ -2508,7 +2527,7 @@ class codeemitter:
             ptr_a_dest = True
         if destvarname == "memdump_p":
             iii = 0
-        if sourcevarname == "global_closebracket":
+        if sourcevarname == "analyse_cp":
             iii = 0
         self.createcode("","","---COPYVAR (%d) (sourcename:%s, destname=%s, srcsize:%d, dstsize:%d, srcregister:%s, destregister:%s)" % (lineno, sourcevarname, destvarname, source_size, dest_size, sourceisregister, destisregister))
         if self.checkhash(source_attr, "type_stringconst"):
@@ -2684,28 +2703,45 @@ class codeemitter:
                     sys.exit(1)
                 else:
                     source_offset = sourcevartok.getaddress()
-                    source_offset = 0
                     dest_offset = destvartoken.getaddress()
-                    dest_offset = 0
-                    firstelement = False
-                    count = dest_size
-                    for x in range(source_size):
-                        if not firstelement:
-                            self.createcode("LDY", "#%s" % (sourcevarname), "load index, copy from %s to %s" % (sourcevarname, destvarname))
+                    if self.checkhash(source_attr, "type_chararray"): 
+                        if sourcenamespace == "global":
+                            print("fatal error, global namespace handeled above")
+                            sys.exit(1)
                         else:
-                            self.createcode("LDY", "#%s_%d" % (sourcevarname, source_offset), "load index, copy from %s to %s" % (sourcevarname, destvarname))
-                        self.createcode("LDA", "(%s),Y" % (sourceframe0), "load from local var")
-                        if not firstelement:
-                            self.createcode("LDY", "#%s_%d" % (destvarname, dest_offset), "load index for destination")
-                        else:
-                            self.createcode("LDY", "#%s_%d" % (destvarname, dest_offset), "load index for destination")
-                        self.createcode("STA", "(%s),Y" % (destframe0), "save to local var")
-                        source_offset += 1
-                        dest_offset += 1
-                        firstelement = True
-                        count -= 1
-                        if count == 0:
-                            break
+                            self.createcode("CLC", "", "Load Adress of local char-array and save the address into destination")
+                            self.createcode("LDA", "#%s" % sourcevarname)
+                            self.createcode("ADC", sourceframe0)
+                            self.createcode("PHP")
+                            self.createcode("LDY", "#%s" % destvarname)
+                            self.createcode("STA", "(%s),Y" % destframe0)
+                            self.createcode("PLP")
+                            self.createcode("LDA", "#0")
+                            self.createcode("ADC", sourceframe1)
+                            self.createcode("INY")
+                            self.createcode("STA", "(%s),Y" % destframe0)
+                    else:
+                        firstelement = False
+                        source_offset = 0
+                        dest_offset = 0
+                        count = dest_size
+                        for x in range(source_size):
+                            if not firstelement:
+                                self.createcode("LDY", "#%s" % (sourcevarname), "load index, copy from %s to %s" % (sourcevarname, destvarname))
+                            else:
+                                self.createcode("LDY", "#%s_%d" % (sourcevarname, source_offset), "load index, copy from %s to %s" % (sourcevarname, destvarname))
+                            self.createcode("LDA", "(%s),Y" % (sourceframe0), "load from local var")
+                            if not firstelement:
+                                self.createcode("LDY", "#%s_%d" % (destvarname, dest_offset), "load index for destination")
+                            else:
+                                self.createcode("LDY", "#%s_%d" % (destvarname, dest_offset), "load index for destination")
+                            self.createcode("STA", "(%s),Y" % (destframe0), "save to local var")
+                            source_offset += 1
+                            dest_offset += 1
+                            firstelement = True
+                            count -= 1
+                            if count == 0:
+                                break
             elif dest_size == 4 or destisregister:
                 if ptr_a_source:
                     if self.checkhash(source_attr, "type_byte"):
@@ -2876,7 +2912,10 @@ class codeemitter:
             xxxxxx = name
         if True:
             if self.checkhash(attribhash, "type_integer") or self.checkhash(attribhash, "type_pointer") or self.checkhash(attribhash, "type_varpointer"):
-                x = "%04x" % int(t_value)
+                if int(t_value) < 0:
+                    x = hex(int(t_value) + (1<<16))[2:]
+                else:
+                    x = "%04x" % int(t_value)
                 hibyte = x[0:2]
                 lobyte = x[2:4]
                 if destnamespace == "global":
@@ -2893,7 +2932,10 @@ class codeemitter:
                     self.createcode("STA", "(%s),Y" % destframe0, "store hibyte")
             elif self.checkhash(attribhash, "cpuregister"):
                 self.log.writelog("codeemitter/assignvaluetovar/cpuregister", "name is:%20s, adr=:$%04x" % (stoken.getname(), adr))
-                x = "%016x" % int(t_value)
+                if int(t_value) < 0:
+                    x = hex(int(t_value) + (1<<64))[2:]
+                else:
+                    x = "%016x" % int(t_value)
                 byte_0 = x[0:2]
                 byte_1 = x[2:4]
                 byte_2 = x[4:6]
@@ -2919,11 +2961,15 @@ class codeemitter:
                     print("cpuregister not global, something went wrong")
                     sys.exit(1)
             elif self.checkhash(attribhash, "type_byte") or self.checkhash(attribhash, "type_char"):
+                if int(t_value) < 0:
+                    x = hex(int(t_value) + (1<<8))[2:]
+                else:
+                    x = "%02x" % int(t_value)
                 if destnamespace == "global":
                     self.setname("")
                     self.setopcode("LDA")
-                    self.setvalue("#" + str(int(t_value)))
-                    self.setcomment("assign var %s = %s with %s"%(name,value,attribstr))
+                    self.setvalue("#$%s" % x)
+                    self.setcomment("assign var %s = %s with %s"%(name,x,attribstr))
                     self.createassemberline()
                     self.setopcode("STA")
                     self.setvalue(funcvarname)
@@ -2931,11 +2977,14 @@ class codeemitter:
                     self.createassemberline()
                 else:
                     self.createcode("LDY", "#%s" % funcvarname, "load index")
-                    self.createcode("LDA", "#%d" % int(t_value), "load constant to accu")
+                    self.createcode("LDA", "#$%s" % x, "load constant to accu")
                     self.createcode("STA", "(%s),Y" % destframe0, "store data in local var")
             elif self.checkhash(attribhash, "type_long"):
                 self.log.writelog("codeemitter/assignvaluetovar/type_long", "name is:%20s, adr=:$%08x" % (stoken.getname(), adr))
-                x = "%08x" % int(t_value)
+                if int(t_value) < 0:
+                    x = hex(int(t_value) + (1<<32))[2:]
+                else:
+                    x = "%08x" % int(t_value)
                 if destnamespace == "global":
                     index = 0
                     indx = 6
@@ -2962,7 +3011,10 @@ class codeemitter:
                         oldhexbyte = hexbyte
             elif self.checkhash(attribhash, "type_longlong"):
                 self.log.writelog("codeemitter/assignvaluetovar/type_longlong", "name is:%20s, adr=:$%08x" % (stoken.getname(), adr))
-                x = "%016x" % int(t_value)
+                if int(t_value) < 0:
+                    x = hex(int(t_value) + (1<<64))[2:]
+                else:
+                    x = "%016x" % int(t_value)
                 byte_0 = x[0:2]
                 byte_1 = x[2:4]
                 byte_2 = x[4:6]
@@ -3003,6 +3055,8 @@ class codeemitter:
     def createfunctioncall(self, functionobj, arglist, line=0):
         debug = False
         functionname = functionobj.getname()
+        if functionname == "strtok":
+            x = 0
         functiondata = functionobj.getfuncdata()
         destinationargs = functiondata.getvar()
         destindex = 0
@@ -3033,6 +3087,9 @@ class codeemitter:
                 sourcestok = arg
                 sourcevarname = arg.getnamewithnamespace()
                 sourcesize = sourcestok.getsize()
+                source_attr = sourcestok.getattributehash()
+                if functionname == "strtok" and self.checkhash(source_attr, "type_chararray"):
+                    x = 0
                 dest = destinationargs[destindex]
                 deststok = self.stokens.getwithnamespace(dest.getvarname(), dest.getnamespace())
                 destsize = deststok.getsize()
@@ -3584,7 +3641,7 @@ class codeemitter:
             sourcenamewithnamespace = sourcestok.getnamewithnamespace()
             sourcevalue = sourcestok.getvalue()
             sourcetype = sourcestok.gettype()
-            if sourcename == "_memarray":
+            if sourcename == "cmd":
                 x = 0
             if self.checkhash(source_attr, "isargument"):
                 frame0 = "_framepointer_0"
@@ -3635,7 +3692,7 @@ class codeemitter:
                     sys.exit(1)
             else:
                 # argindex > 0, these are the sourcees from wich to copy/cat
-                if self.checkhash(source_attr, "type_char"):
+                if not self.checkhash(source_attr, "type_chararray") and self.checkhash(source_attr, "type_char"):
                     searchzero = self.randomword(8)
                     if sourcenamespace == "global":
                         self.createcode("LDA", "%s" % sourcenamewithnamespace)
@@ -3673,7 +3730,6 @@ class codeemitter:
                         self.createcode("JMP", searchzero)
                     elif functionname == "strcpy":
                         self.createcode("LDY", "#0", "strcpy: copy to beginning of char array")
-                        
                     else:
                         print("error in strcpy, strcat...  unknown funktionname:%s" % functionname)
                         sys.exit(1)
@@ -4064,7 +4120,7 @@ class codeemitter:
             print("functionname %s unknown for routine 'adr'" % functionname)
             sys.exit(1)
     
-    # getch(), avail()
+    # sizeof(), getch(), avail()
     def intfunc_sizeof(self, functionobj, arglist, line=0):
         debug = False
         functionname = functionobj.getname()
@@ -4502,7 +4558,6 @@ class codeemitter:
                 idx += 1
                 self.createcode("LDA", "M1_2")
                 self.createcode("STA", "%s_%d" % (destvarname, idx))
-
 # --------------------------------- KIMA FUNCTIONS ------------------------------------
     def emitsetkimaprec(self):
         self.createcode("LDA", "#%s" % int(self.kim_precvalue))
@@ -4653,6 +4708,13 @@ class codeemitter:
         for subname in self.subroutinenames:
             self.createcode("ASCIIZ", "\"%s\"" % subname)
             self.createcode("WORD", subname)
+
+        for subroutine in self.subroutinebuffer:
+            subname = subroutine.getname()
+            if subroutine.getaddtotable():
+                self.createcode("ASCIIZ", "\"%s\"" % subname)
+                self.createcode("WORD", subname)
+
         self.createcode("WORD", 0xACF1, "signal end of table")
 
     def startfunctionarguments(self, stoken, name, value, attributes):
@@ -4848,13 +4910,62 @@ class codeemitter:
         self.createcode("BNE", doafterwhileblocklabel)
         self.createcode("JMP", doafterwhilelabel)
         self.createcode("NOP", "","do_afterwhileblocklabel",  name=doafterwhileblocklabel)
-        
+
     def end_afterwhile(self, whileobject):
         namespace = self.blocks.getactivefunctionname()
         dowhileexprlabel = whileobject.getfuncdata()
         doafterwhilelabel = whileobject.getscratch()
         self.createcode("JMP",dowhileexprlabel, "end do_afterwhile()")
         self.createcode("NOP","","end_afterwhile",name=doafterwhilelabel)
+
+    def do_switchexpression(self):
+        namespace = self.blocks.getactivefunctionname()
+        doswitchexprlabel = "%s_switch_%s" % (namespace, ''.join(random.choice(string.ascii_lowercase) for i in range(4)))
+        self.createcode("NOP", "", "---------------------do-switchexpression----------------------")
+        self.createcode("NOP","","do_switchexpression")
+        return doswitchexprlabel
+
+    def end_afterswitch(self, switchobject, nextcaselabel):
+        namespace = self.blocks.getactivefunctionname()
+        doswitchexprlabel = switchobject.getfuncdata()
+        self.createcode("NOP", "", "------------------------- end_afterswitch ---------------------", name=nextcaselabel)
+        self.createcode("","","end_afterswitch",name=doswitchexprlabel)
+        
+    def end_aftercase(self, caseobject):
+        namespace = self.blocks.getactivefunctionname()
+        caselabel = caseobject.getfuncdata()
+        self.createcode("", "", "------------------------- end_aftercase ---------------------")
+
+    def do_breakstatement(self, switchobject):
+        namespace = self.blocks.getactivefunctionname()
+        doswitchexprlabel = switchobject.getfuncdata()
+        self.createcode("", "", "---------------------------- do_breakstatement ---------------------")
+        self.createcode("JMP", doswitchexprlabel, "do break, jump to end of switch statement")
+
+    def do_casenextlabel(self):
+        namespace = self.blocks.getactivefunctionname()
+        nextcaselabel = "%s_case_%s" % (namespace, ''.join(random.choice(string.ascii_lowercase) for i in range(4)))
+        self.createcode("", "", "--do-casenextlabel---- next label is: %s ----------------" % nextcaselabel)
+        return nextcaselabel
+
+    def do_casestatement(self, t_type, t_name, thiscaselabel, nextcaselabel):
+        if t_type == "number":
+            int_value = int(t_name)
+            # convert value only in 16 bit value, switch selector must be int value
+            if int_value < 0:
+                hexvalue = hex(int_value + (1<<16))[2:]
+            else:
+                hexvalue = "%04x" % int_value
+            self.createcode("", "", "-------------------------do casestatement--------------------------")
+            self.createcode("LDA", "_unireg0_0", "case statement load lsb from unireg0", name=thiscaselabel)
+            self.createcode("CMP", "#$%s" % hexvalue[2:4], "compare lsb with value %d" % int_value)
+            self.createcode("BNE", nextcaselabel)
+            self.createcode("LDA", "_unireg0_1", "case statement load msb from unireg0")
+            self.createcode("CMP", "#$%s" % hexvalue[0:2], "compare msb with value %d" % int_value)
+            self.createcode("BNE", nextcaselabel)
+        else:
+            print("case select is not a number constant, terminating")
+            sys.exit(1)
 
     def close(self):
         print("Codeemitter Close")

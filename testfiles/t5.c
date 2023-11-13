@@ -1,5 +1,8 @@
 #include <factorial.c>
 #include <printsubtable.c>
+#include <strcmp.c>
+#include <readline.c>
+#include <simplestrtok.c>
 
 void checkabort() {
     char ch;
@@ -8,36 +11,77 @@ void checkabort() {
     count = avail();
     if (count > 0) {
         ch = getch();
-        if (ch == 'q') {
+        if (ch == 3) {  // control-c aborts
             _JMP 0x8000;
         }
     }
 }
 
 
-long main(int argc, ADDRESSPTR argv) {
-    ADDRESSPTR s, t, p, f1, f2;
-    long i, max, sum;
+int checkcommand(ADDRESSPTR cmd) {
+    ADDRESSPTR p, q, cmdptr;
+    int n, match;
+    byte f;
+    char cmd_list[80];
 
-    println("Calculating 100 x");
-    f1 = adr("programstart");
-    f2 = adr("kima_konst");
-    max = 10000;
-    i = 0;
-    while (i < max) {
-        p = f1;
-        sum = 0;
-        while (p < f2) {
-            sum = sum + peek(p);
-            p = p + 1;
+
+    strcpy(cmd_list, "dump set prtab run sub uptime wozmon ntemp gtemp clear help");
+    p = adr(cmd_list);
+    cmdptr = strtok(p); // get first command from list
+    q = cmd;
+    n = 0;
+    f = 1;
+    checkcommandloop:
+        match = strcmp(p,q);
+        if (match == 0) {
+            return n;
         }
-        // println("i:", i, " f1:", f1, " f2:", f2, " sum:", sum);
-        p = adr("lcd_update_seconds");
-        // s = getintataddress(p);
-        t = peekword(p);
-        println("getintaddress:", s, " peekword:", t);
+        n = n + 1;
+        p = strtok(0);
+        if (p == 0) {
+            return -1;
+        }
+    goto checkcommandloop:
+}
+
+char buffer[100];
+char teststr[10];
+
+long main(int argc, ADDRESSPTR argv) {
+    ADDRESSPTR s, t, p, f1, f2, bufptr, testptr;
+    long i, max, sum;
+    int numcharsread, index;
+
+    bufptr = adr(buffer);
+    i = 0;
+    max = 100;
+    testptr = adr(teststr);
+    strcpy(teststr, "test");
+    while (i < max) {
+        numcharsread = readline(bufptr, 100);
+        if (numcharsread == -1) {
+            return numcharsread;
+        }
+        index = checkcommand(bufptr);
+        switch (index) {
+                case 1: {
+                    i = i + 1;
+                    println("case is 1");
+                }
+                break;
+                case 2: {
+                    i = i - 1;
+                    println("case is 2");
+                }
+                break;
+                case 5: {
+                    i = i - 1;
+                    println("case is 5");
+                }
+                break;
+        }
+        println();
+        println("index:", index, " buffer:", buffer);
         i = i + 1;
-        printsubtable();
-        checkabort();
     }
 }

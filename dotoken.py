@@ -624,25 +624,34 @@ class dotoken:
             if foundtoken == None:
                 foundtoken = self.stokens.getwithnamespace(self.t_value, "_INTERNAL")
                 if foundtoken == None:
-                    print("Line:%d Token %s in namespace '%s' and '%s' and 'internal' not found!" % (self.t_linenumber, idname, namespace, "global"))
-                    sys.exit(1)
+                    self.nexttoken()
+                    if self.t_type == "colon":
+                        called_name = idname
+                        called_type = "label"
+                        attributes = [ "label_definition" ]
+                        labeltoken = self.stokens.addwithattributes(called_name, called_type, attributes)
+                        self.code.startlabel(labeltoken, called_type, called_name)
+                        return
+                    else:
+                        print("Line:%d Token %s in namespace '%s' and '%s' and 'internal' not found!" % (self.t_linenumber, idname, namespace, "global"))
+                        sys.exit(1)
         self.log.writelog("dotoken/do_alphastatement", "t_type:%s, t_value:%s" % (self.t_type, self.t_value))
-        if foundtoken == None:
-            self.nexttoken()
-            if self.t_type == "colon":
-                called_name = idname
-                called_type = "label"
-                attributes = [ "label_definition" ]
-                labeltoken = self.stokens.addwithattributes(called_name, called_type, attributes)
-                self.code.startlabel(labeltoken, called_type, called_name)
-                return
-            else:
-                if self.t_value == "equals":
-                    self.log.writelog("dotoken/do_alphastatement", "t_type:%s, t_value:%s" % (idname, idname))
-                    self.log.writelog("dotoken/do_alphastatement", "Identifier %s not found!" % idname)
-                    print("identifier: %s not found, terminating in line number %d" % (idname, self.t_linenumber))
-                print("Identifier '%s' not found: Terminating program" % idname)
-                sys.exit(1)
+        #if foundtoken == None:
+        #    self.nexttoken()
+        #    if self.t_type == "colon":
+        #        called_name = idname
+        #        called_type = "label"
+        #        attributes = [ "label_definition" ]
+        #        labeltoken = self.stokens.addwithattributes(called_name, called_type, attributes)
+        #        self.code.startlabel(labeltoken, called_type, called_name)
+        #        return
+        #    else:
+        #        if self.t_value == "equals":
+        #            self.log.writelog("dotoken/do_alphastatement", "t_type:%s, t_value:%s" % (idname, idname))
+        #            self.log.writelog("dotoken/do_alphastatement", "Identifier %s not found!" % idname)
+        #            print("identifier: %s not found, terminating in line number %d" % (idname, self.t_linenumber))
+        #        print("Identifier '%s' not found: Terminating program" % idname)
+        #        sys.exit(1)
         foundtoken.addattributes(attributes)
         tokinfo = foundtoken.getinfo()
         attribs = foundtoken.getattributes()
@@ -755,6 +764,15 @@ class dotoken:
             self.code.end_afterelse(blockended)
             leavednamespace = self.blocks.popfunctionstack()
 
+    def do_for(self, t_type, t_value):
+        if t_type == "statement_for____":
+
+            pass
+        else:
+            print("error in for loop, in line:%d", self.t_linenumber)
+            sys.exit(1)
+        pass
+
     def do_while(self, t_type, t_value):
         if t_type == "statement_while":
             whilelabel = self.code.do_whileexpression()
@@ -765,20 +783,75 @@ class dotoken:
                 startwhileblock = self.blocks.beginblock("while", None)
                 startwhileblock.setfuncdata(whilelabel)
                 self.code.do_afterwhile(startwhileblock)
-
-    def do_for(self, t_type, t_value):
-        if t_type == "statement_for____":
-
-            pass
         else:
-            print("error in for loop, in line:%d", self.t_linenumber)
-            sys.exit(1)
-        pass
+            print("do while is not a while statement,  fatal error, in line:%d" % self.t_linenumber)
+            sys.exit(1);
 
     def do_endwhile(self, t_type, blockended, line=""):
         if t_type == "endblock":
             self.code.end_afterwhile(blockended)
             leavednamespace = self.blocks.popfunctionstack()
+
+    def do_switch(self, t_type, t_value):
+        if t_type == "statement_switch":
+            switchlabel = self.code.do_switchexpression()
+            returntoken = self.stokens.get("_unireg0")
+            self.do_expression(returntoken)
+            returnvalue = returntoken.getvalue()
+            if self.t_type == "startblock":
+                startswitchblock = self.blocks.beginblock("switch", None)
+                startswitchblock.setfuncdata(switchlabel)
+                self.thiscaselabel = ""
+                self.nextcaselabel = self.code.do_casenextlabel()
+            else:
+                pass
+        else:
+            print("do_switch is not a switch statement, fatal error, in line:%d" % self.t_linenumber)
+            sys.exit(1)
+
+    def do_endswitch(self, t_type, blockended, line=""):
+        if t_type == "endblock":
+            self.code.end_afterswitch(blockended, self.thiscaselabel)
+            leavednamespace = self.blocks.popfunctionstack()
+
+    def do_casestatement(self, t_type, t_value):
+        if t_type == "statement_case":
+            self.nexttoken()
+            t_type = self.t_type
+            t_value = self.t_value
+            if t_type == "number":
+                self.nexttoken()
+                if self.t_type == "colon":
+                    self.nexttoken()
+                    if self.t_type == "startblock":
+                        startswitchcase = self.blocks.beginblock("case", None)
+                        self.nextcasestatement = self.code.do_casestatement(t_type, t_value, self.thiscaselabel, self.nextcaselabel)
+                        self.thiscaselabel = self.nextcaselabel
+                        self.nextcaselabel = self.code.do_casenextlabel()
+            else:
+                print("case selector must be a number constant, error in line: %d" % self.t_linenumber)
+                sys.exit(1)
+        else:
+            print("case statement not recognized, fatal error, in line:" % self.t_linenumber)
+            sys.exit(1)
+
+    def do_endcase(self, t_type, blockended, line=""):
+        if t_type == "endblock":
+            leavednamespace = self.blocks.popfunctionstack()
+            acutalblock = self.blocks.getblockonstack()
+            self.code.end_aftercase(acutalblock)
+
+
+    def do_breakstatement(self, t_type, t_value):
+        if t_type == "statement_break":
+            acutalblock = self.blocks.getblockonstack()
+            acuaalblocktype = acutalblock.getvalue()
+            if acuaalblocktype == "switch":
+                self.code.do_breakstatement(acutalblock)
+            else:
+                print("break not implemented for: %s" % acuaalblocktype)
+                print("exit here")
+                sys.exit(1)
 
     def emit(self, varstart, programstart, stackstart, outfilepath, modell):
         attributes = []
@@ -821,14 +894,11 @@ class dotoken:
                     print("leaved block:%s" % leavednamespace)
                 elif blockended.getvalue() == "if":
                     # check for following else
-                    if True:
-                        checktype = self.gettokentypeatnext()
-                        if checktype == "statement_else":
-                            self.nexttoken()
-                            self.do_endif(self.t_type, blockended, elsefollow=True, line=self.t_linenumber)
-                            self.do_else(self.t_type, self.t_value, blockended)
-                        else:
-                            self.do_endif(self.t_type, blockended, line=self.t_linenumber)
+                    checktype = self.gettokentypeatnext()
+                    if checktype == "statement_else":
+                        self.nexttoken()
+                        self.do_endif(self.t_type, blockended, elsefollow=True, line=self.t_linenumber)
+                        self.do_else(self.t_type, self.t_value, blockended)
                     else:
                         self.do_endif(self.t_type, blockended, line=self.t_linenumber)
                 elif blockended.getvalue() == "else":
@@ -836,6 +906,10 @@ class dotoken:
                     print("do_endelse called, else block is finished")
                 elif blockended.getvalue() == "while":
                     self.do_endwhile(self.t_type, blockended, line=self.t_linenumber)
+                elif blockended.getvalue() == "switch":
+                    self.do_endswitch(self.t_type, blockended, line=self.t_linenumber)
+                elif blockended.getvalue() == "case":
+                    self.do_endcase(self.t_type, blockended, line=self.t_linenumber)
                 else:
                     print("unmatched } found, terminating program")
                     sys.exit(1)
@@ -849,8 +923,14 @@ class dotoken:
                 self.do_while(self.t_type, self.t_value)
 #            elif self.t_type == "statement_for":
 #                self.do_for(self.t_type, self.t_value)
+            elif self.t_type == "statement_switch":
+                self.do_switch(self.t_type, self.t_value)
             elif self.t_type == "statement_return":
                 self.do_returnstatement(self.t_type, self.t_value)
+            elif self.t_type == "statement_case":
+                self.do_casestatement(self.t_type, self.t_value)
+            elif self.t_type == "statement_break":
+                self.do_breakstatement(self.t_type, self.t_value)
             elif self.t_type == "semicolon":
                 self.log.writelog("dotoken/emit", "unused semicolon")
             self.blocks.debugblockstack()

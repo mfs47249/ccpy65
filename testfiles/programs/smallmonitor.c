@@ -1,12 +1,37 @@
-// #include <isnumber.c>
-// #include <upchar.c>
 #include <simplestrtok.c>
 
-#include <findinstrings.c>
 #include <convert_to_bin.c>
+#include <strcmp.c>
+
 #include <dumpmemory.c>
 #include <printsubtable.c>
 // #include <factorial.c>
+
+void resetterminal() {
+    char esc;
+    long wait;
+
+    esc = 27;
+    println(esc, "c");
+    wait = 100;
+    while (wait > 0) {
+        wait = wait - 1;
+    }
+}
+
+void help() {
+    println("dump from to   - dump memory from x to y");
+    println("set ad n <n> ..- set data at address ad upwards")
+    println("prtab          - print subroutine address table");
+    println("run start      - run program at start");
+    println("sub start      - call program as subroutine at start");
+    println("uptime         - show system uptime");
+    println("wozmon         - start wozmon");
+    println("ntemp          - set new fanspeed from 0 to 7");
+    println("gtemp          - get actual temp-value")
+    println("clear          - clear screen and init vt100 with ESC c");
+    println("help           - show this help");
+}
 
 int dump_memory(ADDRESSPTR cmd_line) {
     ADDRESSPTR p, q, converr_ptr;
@@ -33,7 +58,7 @@ int dump_memory(ADDRESSPTR cmd_line) {
     }
     dumpfromto(startaddress, endaddress);
 }
-/*
+
 ADDRESSPTR jumpaddress;
 int run_program(ADDRESSPTR cmd_line) {
     ADDRESSPTR p, converr_ptr;
@@ -61,8 +86,6 @@ int run_program(ADDRESSPTR cmd_line) {
     _JMP (global_jumpaddress);
     return 0;
 }
-*/
-
 
 ADDRESSPTR jsraddress;
 int jsr_program(ADDRESSPTR cmd_line) {
@@ -94,7 +117,6 @@ int jsr_program(ADDRESSPTR cmd_line) {
 _LABEL callsubroutine;
     _JMP (global_jsraddress);
 }
-
 
 void readbytes(ADDRESSPTR q, byte count) {
     ADDRESSPTR p;
@@ -173,6 +195,8 @@ void communication() {
     printlnhex("ERR: header:", header, " calc:", calcchecksum, " address:", address, " errors:", errors);
 }
 
+
+char cmd_buf[256];
 void process_buffer() {
     ADDRESSPTR p, datalength, dataaddress, dataitem, checkptr, address, converr_ptr;
     int length, checksum, index, calcchecksum, headerchecksum;
@@ -227,7 +251,7 @@ int terminal(ADDRESSPTR cmdline) {
 
     println("");
     println("mini Term startet, every Input");
-    println("sets the PIA Port B and strobes CB2");
+    println("sets the PIA Port A and strobes CA2");
     println("characters will be echoed here");
     println("control-Z exits.");
     doloop = 1;
@@ -285,12 +309,14 @@ int setmemory(ADDRESSPTR cmdline) {
 
 int gettemp() {
     ADDRESSPTR p;
-    int value;
+    int value, fanspeed;
 
     p = adr(temp_time);
     value = peekword(p);
+    p = adr("min_fanspeed");
+    fanspeed = peek(p);
     println();
-    println("Temp-Value is:", value);
+    println("Temp-Value is:", value, " min_fanspeed:", fanspeed);
 }
 
 int settemp(ADDRESSPTR cmdline) {
@@ -313,98 +339,99 @@ int settemp(ADDRESSPTR cmdline) {
     println();
 }
 
+int checkcommand(ADDRESSPTR cmd) {
+    ADDRESSPTR p, q, cmdptr;
+    int n, match;
+    byte f;
+    char cmd_list[80];
+
+    strcpy(cmd_list, "dump set prtab wozmon sub run uptime ntemp gtemp term clear help");
+    cmdptr = strtok(cmd_list); // get first command from list
+    p = adr(cmd_list);
+    q = cmd;
+    n = 0;
+    f = 1;
+    checkcommandloop:
+        match = strcmp(p,q);
+        if (match == 0) {
+            return n;
+        }
+        n = n + 1;
+        p = strtok(0);
+        if (p == 0) {
+            return -1;
+        }
+    goto checkcommandloop:
+}
+
+char cp[20];
 int analyse() {
-    ADDRESSPTR p, chptr, tok;
-    char ch, space;
-    byte do_analyse, ishex, notfound;
+    ADDRESSPTR first;
     int result;
-    char checkbuf[20];
+    // char cp[20];
 
-    notfound = 1;
-    if (notfound) {
-        strcpy(search_buf, "set");
-        result = findincmd();
-        if (result == 0) {
+    strcpy(cp, cmd_buf);
+    first = strtok(cp); // get first command from list
+    result = checkcommand(first);
+    println();
+    println(cmd_buf);
+    if (result == -1) {
+        println("not found");
+        return -1;
+    }
+    switch (result) {
+        case 0: {
+            dump_memory(cmd_buf);
+        }
+        break;
+        case 1: {
             setmemory(cmd_buf);
-            notfound = 0;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "ntemp");
-        result = findincmd();
-        if (result == 0) {
-            settemp(cmd_buf);
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "gtemp");
-        result = findincmd();
-        if (result == 0) {
-            gettemp();
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "term");
-        result = findincmd();
-        if (result == 0) {
-            terminal(cmd_buf);
-            notfound = 0;
-        }
-    }
-
-/*
-    if (notfound) {
-        strcpy(search_buf, "ru");
-        result = findincmd();
-        if (result == 0) {
-            p = adr(cmd_buf);
-            run_program(p);
-            // usally, this will never come back
-            notfound = 0;
-        }
-    }
-    */
-    if (notfound) {
-        strcpy(search_buf, "su");
-        result = findincmd();
-        if (result == 0) {
-            p = adr(cmd_buf);
-            jsr_program(p);
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "prtab");
-        result = findincmd();
-        if (result == 0) {
+        break;
+        case 2: {
             println();
             printsubtable();
-            notfound = 0;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "du");
-        result = findincmd();
-        if (result == 0) {
-            println();
-            p = adr(cmd_buf);
-            dump_memory(p);
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "woz");
-        result = findincmd();
-        if (result == 0) {
+        break;
+        case 3: {
             println("exit monitor to wozmon...");
             _JMP wozmonentrypoint;
         }
+        break;
+        case 4: {
+            jsr_program(cmd_buf);
+        }
+        break;
+        case 5: {
+            // run
+        }
+        break;
+        case 6: {
+            println("printuptime not installed in small monitor");
+        }
+        break;
+        case 7: {
+            settemp(cmd_buf);
+        }
+        break;
+        case 8: {
+            gettemp();
+        }
+        break;
+        case 9: {
+            terminal(cmd_buf);
+        }
+        break;
+        case 10: {
+            resetterminal();
+        }
+        break;
+        case 11: {
+            help();
+        }
+        break;
     }
-    if (notfound) {
-        println();
-    }
+    println();
     return 0;
 }
 

@@ -12,21 +12,6 @@ ADDRESSPTR nextafterterminator(ADDRESSPTR s) {
     return p;
 }
 
-/*  we can now use peekword() for this feature
-
-int getintataddress(ADDRESSPTR q) {
-    ADDRESSPTR p;
-    int ad, x;
-
-    p = q;
-    ad = peek(p);
-    p = p + 1;
-    x = peek(p);
-    shiftleft(x,8);
-    return ad + x;
-}
-*/
-
 void printsubtable() {
     ADDRESSPTR p, q;
     int ad, le;

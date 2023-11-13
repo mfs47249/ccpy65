@@ -149,7 +149,7 @@ class storetokens:
         self.addb("auto", "type_auto", True)
         self.addb("break", "statement_break", True)
         self.addb("const", "constant", True)
-        self.addb("case", "statement_break", True)
+        self.addb("case", "statement_case", True)
         self.addb("continue", "statement_continue", True)
         self.addb("default", "statement_default", True)
         self.addb("do", "statement_do", True)

@@ -216,12 +216,21 @@ class filedata:
 
     def processminus(self):
         nextchar = self.getch()
-        if nextchar == '-':
-            self.lasttoken = "minusminussign"
+        if nextchar in self.numberset:
+            nextchar = "-" + nextchar
+            while self.getch() in self.numberset:
+                nextchar += self.ch
+            self.lasttoken = nextchar
+            self.lasttokentype = "number"
+            tokens.addtoken(self.lasttoken, self.lasttokentype, self.linenumber)
+            self.ungetch()
+            return
+        elif nextchar == '-':
+            self.lasttoken = self.lasttokentype = "minusminussign"
         else:
             self.ungetch()
-            self.lasttoken = "minussign"
-        tokens.addtoken(self.lasttoken, self.lasttoken, self.linenumber)
+            self.lasttoken = self.lasttokentype = "minussign"
+        tokens.addtoken(self.lasttoken, self.lasttokentype, self.linenumber)
         if self.debugscanner:
             print("%30s, lasttoken:'%s'" % (self.getfname(insp.currentframe()), self.lasttoken))
         return

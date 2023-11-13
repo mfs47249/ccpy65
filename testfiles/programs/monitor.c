@@ -403,6 +403,8 @@ int setmemory(ADDRESSPTR cmdline) {
     return 0;
 }
 
+
+
 int analyse() {
     ADDRESSPTR p, chptr, tok;
     char ch, space;
