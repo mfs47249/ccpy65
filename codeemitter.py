@@ -872,14 +872,28 @@ class codeemitter:
         if destnamespace == "global":
             indx = 0
             self.createcode("LDY", "#0", "POPVARFROMSTACK GLOBAL to Name:%s, size:%d" % (name, destsize))
-            for x in range(destsize):
-                self.createcode("LDA", "(%s),Y" % ureg, "copy from:%s" % ureg)
+            if False:
+                for x in range(destsize):
+                    self.createcode("LDA", "(%s),Y" % ureg, "copy from:%s" % ureg)
+                    try:
+                        self.createcode("STA", "%s" % (registerconvert[destname + '_' + str(x)]))
+                    except KeyError:
+                        self.createcode("STA", "%s" % name + '_' + str(x))
+                    if x < destsize - 1:
+                        self.createcode("INY")
+            else:
+                copyloop = self.randomword(8)
                 try:
-                    self.createcode("STA", "%s" % (registerconvert[destname + '_' + str(x)]))
+                    fullname = registerconvert[destname + "_0"]
                 except KeyError:
-                    self.createcode("STA", "%s" % name + '_' + str(x))
-                if x < destsize - 1:
-                    self.createcode("INY")
+                    fullname = name + "_0"
+                self.createcode("LDX", "#0")
+                self.createcode("LDA", "(%s),Y" % ureg, "copy from:%s" % ureg, name=copyloop)
+                self.createcode("STA", "%s,X" % fullname)
+                self.createcode("INY")
+                self.createcode("INX")
+                self.createcode("CPX", "#%d" % destsize)
+                self.createcode("BNE", copyloop)
         else:
             indx = 0
             self.createcode("CLC","","POPVARFROMSTACK LOCAL to Name:%s" % name)

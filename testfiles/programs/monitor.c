@@ -1,7 +1,7 @@
 #include <isnumber.c>
 #include <upchar.c>
 #include <simplestrtok.c>
-
+#include <strcmp.c>
 #include <findinstrings.c>
 #include <convert_to_bin.c>
 #include <dumpmemory.c>
@@ -12,30 +12,24 @@
 #include <factorial.c>
 
 void help() {
-    println("du(mp) from to - dump memory from x to y");
+    println("dump from to   - dump memory from x to y");
     println("set ad n <n> ..- set data at address ad upwards")
     println("prtab          - print subroutine address table");
-    println("ru(n) start    - run program at start");
-    println("su(b) start    - call program as subroutine at start");
-    println("up(time)       - show system uptime");
-    println("woz(mon)       - start wozmon");
-    println("ntemp          - set new fanspeed from 0 to 7");
-    println("gtemp          - get actual temp-value")
+    println("run start      - run program at start");
+    println("sub start      - call program as subroutine at start");
+    println("uptime         - show system uptime");
+    println("wozmon         - start wozmon");
+    println("setfan         - set new fanspeed from 0 to 7");
+    println("temp           - get actual temp-value")
     println("clear          - clear screen and init vt100 with ESC c");
-    println("he(lp)         - show this help");
-}
-
-long timerinterval;
-
-char chr(byte chvalue) {
-    return chvalue;
+    println("help           - show this help");
 }
 
 void resetterminal() {
     char esc;
     long wait;
 
-    esc = chr(27);
+    esc = 27;
     println(esc, "c");
     wait = 100;
     while (wait > 0) {
@@ -43,16 +37,32 @@ void resetterminal() {
     }
 }
 
-
 int gettemp() {
     ADDRESSPTR p;
-    int value;
+    int value, fanspeed, temp;
+    char message[30];
 
     p = adr(temp_time);
     value = peekword(p);
+    p = adr("min_fanspeed");
+    fanspeed = peek(p);
+    switch (value) {
+        case 1 : { temp = 80; }
+        case 2 : { temp = 70; }
+        case 3 : { temp = 60; }
+        case 4 : { temp = 50; }
+        case 5 : { temp = 45; }
+        case 6 : { temp = 40; }
+        case 7 : { temp = 30; }
+        case 8 : { temp = 27; }
+        case 9 : { temp = 25; }
+        case 10: { temp = 22; }
+        case 11: { temp = 20; }
+    }
     println();
-    println("Temp-Value is:", value);
+    println("Temp-Value is over:", temp, "C, min_fanspeed:", fanspeed);
 }
+
 
 int settemp(ADDRESSPTR cmdline) {
     ADDRESSPTR p, st, converr_ptr;
@@ -105,7 +115,12 @@ int terminal(ADDRESSPTR cmdline) {
     return 0;
 }
 
+/* old version with countier in usec resolution, this will only work as is, when cpu clock
+   is 1Mhz   */
 
+#include <uptime.c>
+
+/*
 void printuptime(long interval) {
     longlong ticks;
     longlong usec;
@@ -136,6 +151,7 @@ void printuptime(long interval) {
     //time_in_sec = (timeinusec / 1000000) - (minutes * 60);
     println("usec:" timeinusec, " days:", days, " hours:", hours, " minutes:", minutes, " sec:", seconds);
 }
+*/
 
 int dump_memory(ADDRESSPTR cmd_line) {
     ADDRESSPTR p, q, converr_ptr;
@@ -404,131 +420,102 @@ int setmemory(ADDRESSPTR cmdline) {
 }
 
 
+int checkcommand(ADDRESSPTR cmd) {
+    ADDRESSPTR p, q, cmdptr;
+    int n, match;
+    byte f;
+    char cmd_list[80];
+
+    strcpy(cmd_list, "dump set prtab wozmon sub run uptime setfan temp term clear help fac");
+    cmdptr = strtok(cmd_list); // get first command from list
+    p = adr(cmd_list);
+    q = cmd;
+    n = 0;
+    f = 1;
+    checkcommandloop:
+        match = strcmp(p,q);
+        if (match == 0) {
+            return n;
+        }
+        n = n + 1;
+        p = strtok(0);
+        if (p == 0) {
+            return -1;
+        }
+    goto checkcommandloop:
+}
 
 int analyse() {
-    ADDRESSPTR p, chptr, tok;
-    char ch, space;
-    byte do_analyse, ishex, notfound;
+    ADDRESSPTR first;
     int result;
-    char checkbuf[20];
+    char cp[20];
 
-    notfound = 1;
-    if (notfound) {
-        strcpy(search_buf, "clear");
-        result = findincmd();
-        if (result == 0) {
-            lcdcommand(1); // clear lcd display
-            resetterminal();
-            notfound = 0;
-        }
+    strcpy(cp, cmd_buf);
+    first = strtok(cp); // get first command from list
+    result = checkcommand(first);
+    println();
+    println(cmd_buf);
+    if (result == -1) {
+        println("not found");
     }
-    if (notfound) {
-        strcpy(search_buf, "term");
-        result = findincmd();
-        if (result == 0) {
-            terminal(cmd_buf);
-            notfound = 0;
+    switch (result) {
+        case 0: {
+            dump_memory(cmd_buf);
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "set");
-        result = findincmd();
-        if (result == 0) {
+        break;
+        case 1: {
             setmemory(cmd_buf);
-            notfound = 0;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "ru");
-        result = findincmd();
-        if (result == 0) {
-            p = adr(cmd_buf);
-            run_program(p);
-            // usally, this will never come back
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "su");
-        result = findincmd();
-        if (result == 0) {
-            p = adr(cmd_buf);
-            jsr_program(p);
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "du");
-        result = findincmd();
-        if (result == 0) {
-            println();
-            p = adr(cmd_buf);
-            dump_memory(p);
-            notfound = 0;
-        }
-    }
-    if (notfound) {
-        strcpy(search_buf, "prtab");
-        result = findincmd();
-        if (result == 0) {
-            println();
+        break;
+        case 2: {
             printsubtable();
-            notfound = 0;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "woz");
-        result = findincmd();
-        if (result == 0) {
+        break;
+        case 3: {
             println("exit monitor to wozmon...");
             _JMP wozmonentrypoint;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "up");
-        result = findincmd();
-        if (result == 0) {
-            println();
-            printuptime(timerinterval);
-            notfound = 0;
+        break;
+        case 4: {
+            jsr_program(cmd_buf);
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "ntemp");
-        result = findincmd();
-        if (result == 0) {
+        break;
+        case 5: {
+            run_program(cmd_buf);
+        }
+        break;
+        case 6: {
+            printuptime();
+            // sprintln("printuptime not installed in small monitor");
+        }
+        break;
+        case 7: {
             settemp(cmd_buf);
-            notfound = 0;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "gtemp");
-        result = findincmd();
-        if (result == 0) {
+        break;
+        case 8: {
             gettemp();
-            notfound = 0;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "help");
-        result = findincmd();
-        if (result == 0) {
+        break;
+        case 9: {
+            terminal(cmd_buf);
+        }
+        break;
+        case 10: {
+            resetterminal();
+        }
+        break;
+        case 11: {
             help();
-            println();
-            notfound = 0;
         }
-    }
-    if (notfound) {
-        strcpy(search_buf, "exit");
-        result = findincmd();
-        if (result == 0) {
-            println("exit monitor...");
-            return 1;
+        break;
+        case 12: {
+            factorialtest();
         }
+        break;
+
     }
-    if (notfound) {
-        println();
-    }
+    println();
     return 0;
 }
 

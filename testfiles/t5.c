@@ -3,6 +3,7 @@
 #include <strcmp.c>
 #include <readline.c>
 #include <simplestrtok.c>
+#include <uptime.c>
 
 void checkabort() {
     char ch;
@@ -58,6 +59,7 @@ long main(int argc, ADDRESSPTR argv) {
     testptr = adr(teststr);
     strcpy(teststr, "test");
     while (i < max) {
+        printuptime();
         numcharsread = readline(bufptr, 100);
         if (numcharsread == -1) {
             return numcharsread;

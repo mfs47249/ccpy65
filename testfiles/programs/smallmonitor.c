@@ -1,8 +1,7 @@
 #include <simplestrtok.c>
-
 #include <convert_to_bin.c>
 #include <strcmp.c>
-
+// #include <uptime.c>
 #include <dumpmemory.c>
 #include <printsubtable.c>
 // #include <factorial.c>
@@ -27,8 +26,8 @@ void help() {
     println("sub start      - call program as subroutine at start");
     println("uptime         - show system uptime");
     println("wozmon         - start wozmon");
-    println("ntemp          - set new fanspeed from 0 to 7");
-    println("gtemp          - get actual temp-value")
+    println("setfan         - set new fanspeed from 0 to 7");
+    println("temp           - get actual temp-value")
     println("clear          - clear screen and init vt100 with ESC c");
     println("help           - show this help");
 }
@@ -309,14 +308,28 @@ int setmemory(ADDRESSPTR cmdline) {
 
 int gettemp() {
     ADDRESSPTR p;
-    int value, fanspeed;
+    int value, fanspeed, temp;
+    char message[30];
 
     p = adr(temp_time);
     value = peekword(p);
     p = adr("min_fanspeed");
     fanspeed = peek(p);
+    switch (value) {
+        case 1 : { temp = 80; }
+        case 2 : { temp = 70; }
+        case 3 : { temp = 60; }
+        case 4 : { temp = 50; }
+        case 5 : { temp = 45; }
+        case 6 : { temp = 40; }
+        case 7 : { temp = 30; }
+        case 8 : { temp = 27; }
+        case 9 : { temp = 25; }
+        case 10: { temp = 22; }
+        case 11: { temp = 20; }
+    }
     println();
-    println("Temp-Value is:", value, " min_fanspeed:", fanspeed);
+    println("Temp-Value is over:", temp, "C, min_fanspeed:", fanspeed);
 }
 
 int settemp(ADDRESSPTR cmdline) {
@@ -345,7 +358,7 @@ int checkcommand(ADDRESSPTR cmd) {
     byte f;
     char cmd_list[80];
 
-    strcpy(cmd_list, "dump set prtab wozmon sub run uptime ntemp gtemp term clear help");
+    strcpy(cmd_list, "dump set prtab wozmon sub run uptime setfan temp term clear help");
     cmdptr = strtok(cmd_list); // get first command from list
     p = adr(cmd_list);
     q = cmd;
@@ -364,11 +377,10 @@ int checkcommand(ADDRESSPTR cmd) {
     goto checkcommandloop:
 }
 
-char cp[20];
 int analyse() {
     ADDRESSPTR first;
     int result;
-    // char cp[20];
+    char cp[20];
 
     strcpy(cp, cmd_buf);
     first = strtok(cp); // get first command from list
@@ -377,7 +389,6 @@ int analyse() {
     println(cmd_buf);
     if (result == -1) {
         println("not found");
-        return -1;
     }
     switch (result) {
         case 0: {
@@ -389,7 +400,6 @@ int analyse() {
         }
         break;
         case 2: {
-            println();
             printsubtable();
         }
         break;
@@ -403,10 +413,11 @@ int analyse() {
         }
         break;
         case 5: {
-            // run
+            run_program(cmd_buf);
         }
         break;
         case 6: {
+            // printuptime();
             println("printuptime not installed in small monitor");
         }
         break;
