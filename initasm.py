@@ -5,24 +5,25 @@ from cclogger import cclogger
 import sys
 
 #
-#  Memory-Configuration Ben Eaters Breadboardcomputer
+#  Memory-Configuration Ben    Memory-Configuration
+#  Eaters Breadboardcomputer   for Michaels PCB
 #
-#  0000 - RAM - 4K
-#  1000 - RAM - 4K
-#  2000 - RAM - 4K
-#  3000 - RAM - 4K
-#  4000 - ???
-#  5000 - ???
-#  6000 - IO-BASESADDRESS
-#  7000 - IO-REPEATING
-#  8000 - EEPROM - 32K
-#  9000 - EEPROM
-#  A000 - EEPROM
-#  B000 - EEPROM
-#  C000 - EEPROM
-#  D000 - EEPROM
-#  E000 - EEPROM
-#  F000 - EEPROM
+#  0000 - RAM - 4K             RAM - 4K
+#  1000 - RAM - 4K             RAM - 4K
+#  2000 - RAM - 4K             RAM - 4K
+#  3000 - RAM - 4K             RAM - 4K
+#  4000 - ???                  RAM - 4K
+#  5000 - ???                  RAM - 4K
+#  6000 - IO-BASESADDRESS      RAM - 4K
+#  7000 - IO-REPEATING         IO-Baseaddress
+#  8000 - EEPROM - 32K         EEPROM
+#  9000 - EEPROM               EEPROM
+#  A000 - EEPROM               EEPROM
+#  B000 - EEPROM               EEPROM
+#  C000 - EEPROM               EEPROM
+#  D000 - EEPROM               EEPROM
+#  E000 - EEPROM               EEPROM
+#  F000 - EEPROM               EEPROM
 #
 class initasm:
     zeropagestart = 0x0000
@@ -55,21 +56,35 @@ class initasm:
         else:
             self.sevensegmentenabled = False
             self.lcdenabled = False
+            self.tempmeasurementenabled = False
             print("don't forget setting IO-Addresses, if there were some")
         # 
         self.programstart = programstart
         self.logger = logger
         self.emit = emit
         self.usingwozfloat = True
-        self.kimathincluded = True
+        #
+        #  switch to include or exclude kimath library
+        #
+        self.kimathincluded = False
         self.usingkimath = self.kimathincluded
         self.kimathzeropage = self.kimathincluded
-        self.aciaenabled = True
+        #
+        #
+        self.aciaenabled = True            # should be on, at the moment, there is no alternative
         self.emulatorenabled = False
         self.stokens = stokens
+        #
+        #  hardware switches for different hardware, the 6522 and the 6551 are mandatory at the moment
+        #
         self.defineVIA6522()
         self.defineACIA6551()
+        #
+        #  6521 is additonal hardware, not needet for the system, only used for temperatur measurement
+        #  and fan control on michaels_pcb 
+        #
         self.definePIA6521()
+        #
         for reg in [ '0','A','1','B','2','C','3','D','4','E','5','F','6','G','7','H' ]:
             dataregistername = "_unireg%s" % reg
             if reg in [ '0','1','2','3','4','5','6','7' ]:
