@@ -231,6 +231,19 @@
                     ],
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Transfer Program to System via communication.px",
+            "type": "python",
+            "request": "launch",
+            "program": "communication.py",
+            "args": ["--startaddress", "0x200",
+                     "--datafile", "michael.bin",
+                     "--length", "64",
+                     "--serialdevice", "COM1"
+                    ],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
 
     ]

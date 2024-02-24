@@ -1,10 +1,9 @@
-#!/usr/local/bin/python3
-import serial
 import time
 import os
 import sys
 import argparse
 import re
+import serial
 
 if os.name == 'nt':
     from serial.tools.list_ports_windows import comports
@@ -318,7 +317,19 @@ class SerialConn:
             packetdata = ""
             checksum = 0
             for d in range(packetlength):
-                item = datavalues[d+count]
+                try:
+                    rest = d + count - len(datavalues) 
+                    if rest >= packetlength:
+                        print ("Rest is: %d" % rest)
+                        if rest == 0:
+                            return
+                        else:
+                            print("something went wrong, your filelength is on boundary of packetlengt, try different packetlength")
+                            return
+                    item = datavalues[d+count]
+                except IndexError:
+                    print("rest:%d Length of datavalues is:%04X count:%04X d:%04X" % (rest, len(datavalues), count, d))
+                    count = length + packetlength
                 packetdata += "%02X " % item
                 checksum += item
             packetdata = packetdata[:-1]
@@ -422,7 +433,12 @@ if args.woz:
 else:
     wozmon_communication = False
 if args.startaddress:
-    address = "%04X" % args.startaddress
+    a_progstart = args.startaddress
+    if a_progstart[0:2] == "0x":
+        print("progstart is a hex number")
+        address = int(a_progstart, 16)
+    else:
+        address = int(a_progstart)
 else:
     address = 0x200
 if args.testmode:
@@ -479,8 +495,7 @@ while tryserial < 10:
             if not serialdev:
                 for port in comports():
                     print(port)
-            else:
-                comm = SerialConn(serialdev)
+            comm = SerialConn(serialdev)
         # this is the apple macintosh version of my serial connection
         if sys.platform == "darwin":
             for port in comports():
@@ -491,13 +506,15 @@ while tryserial < 10:
                 print(port)
             comm = SerialConn("/dev/ttyS0")
         if sys.platform == "cygwin":
-            for port in comports():
-                print(port)
-            comm = SerialConn("/dev/ttyS3")
+            if not serialdev:
+                for port in comports():
+                    print("Found port:%s" % port)
+                    serialdev = port
+            comm = SerialConn(serialdev)
         tryserial = 10;
     except:
         print("Problems to open the serial connection:%s, is your terminal program running?" % serialdev)
-        if tryserial >= 9:
+        if tryserial - 1 > 20:
             print("Terminating....")
             sys.exit(1)
         tryserial += 1

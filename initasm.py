@@ -8,22 +8,22 @@ import sys
 #  Memory-Configuration Ben    Memory-Configuration
 #  Eaters Breadboardcomputer   for Michaels PCB
 #
-#  0000 - RAM - 4K             RAM - 4K
-#  1000 - RAM - 4K             RAM - 4K
-#  2000 - RAM - 4K             RAM - 4K
-#  3000 - RAM - 4K             RAM - 4K
-#  4000 - ???                  RAM - 4K
-#  5000 - ???                  RAM - 4K
-#  6000 - IO-BASESADDRESS      RAM - 4K
-#  7000 - IO-REPEATING         IO-Baseaddress
-#  8000 - EEPROM - 32K         EEPROM
-#  9000 - EEPROM               EEPROM
-#  A000 - EEPROM               EEPROM
-#  B000 - EEPROM               EEPROM
-#  C000 - EEPROM               EEPROM
-#  D000 - EEPROM               EEPROM
-#  E000 - EEPROM               EEPROM
-#  F000 - EEPROM               EEPROM
+#  0000 - RAM - 4K             RAM - 4K          4K
+#  1000 - RAM - 4K             RAM - 4K          8K
+#  2000 - RAM - 4K             RAM - 4K         12K
+#  3000 - RAM - 4K             RAM - 4K         16K
+#  4000 - ???                  RAM - 4K         20K
+#  5000 - ???                  RAM - 4K         24K
+#  6000 - IO-BASESADDRESS      RAM - 4K         28K
+#  7000 - IO-REPEATING         IO-Baseaddress   32K
+#  8000 - EEPROM - 32K         EEPROM           36K
+#  9000 - EEPROM               EEPROM           40K
+#  A000 - EEPROM               EEPROM           44K
+#  B000 - EEPROM               EEPROM           48K
+#  C000 - EEPROM               EEPROM           52K
+#  D000 - EEPROM               EEPROM           56K
+#  E000 - EEPROM               EEPROM           60K
+#  F000 - EEPROM               EEPROM           64K
 #
 class initasm:
     zeropagestart = 0x0000

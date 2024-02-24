@@ -442,7 +442,7 @@ int checkcommand(ADDRESSPTR cmd) {
         if (p == 0) {
             return -1;
         }
-    goto checkcommandloop:
+    goto checkcommandloop;
 }
 
 int analyse() {
