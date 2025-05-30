@@ -42,11 +42,15 @@ class initasm:
         # self.sevensegmentenabled = False
         #
         # set lowleveldebugging to on, check code for specific hardware configuration
+        #
+        # Temp Measurement is special, should be disabled
+        self.tempmeasurementenabled = False
+        #
         self.lowleveldebugging = False
         #
         if self.modelldescription == "beneater_breadboard":
             self.sevensegmentenabled = True
-            self.lcdenabled = True
+            self.lcdenabled = False
             self.cpufreq = 1.0
         elif self.modelldescription == "michaels_first_pcb":
             self.sevensegmentenabled = False
@@ -394,7 +398,8 @@ class initasm:
         emit.insertinline("JSR", "init_clocktimer", 0)
         if self.sevensegmentenabled:
             emit.insertinline("JSR", "init_seven_segment", 0)
-        emit.insertinline("JSR", "initPIA6521", 0)
+        if self.tempmeasurementenabled:
+            emit.insertinline("JSR", "initPIA6521", 0)
         if self.tempmeasurementenabled:
             emit.insertinline("JSR", "inittempcontrol", 0)
         #
@@ -818,8 +823,9 @@ class initasm:
         # self.emit.createcode("LDA", "#%00011110", "Set 8bits + 1 stop, 9600 baud")
         #
         self.emit.createcode("STA", "ACIACONTROL")
-        #self.emit.createcode("LDA", "#%00001001", "no par, no echo, interrupts disabled for TxD")
-        self.emit.createcode("LDA", "#%00101001", "odd par, no echo, interrupts disabled for TxD")
+        # switch between Parity ODD and NO PARITY
+        self.emit.createcode("LDA", "#%00001001", "no par, no echo, interrupts disabled for TxD")
+        # self.emit.createcode("LDA", "#%00101001", "odd par, no echo, interrupts disabled for TxD")
         self.emit.createcode("STA", "ACIACOMMAND")
         # initialize counters and pointers
         self.emit.createcode("LDA", "#0")
@@ -953,43 +959,43 @@ class initasm:
                 self.emit.createcode("STA", "temp_time_flag", "measurement done, wait until next start")
                 self.emit.createcode("RTS", name="noirqfromPIACA1")
 
-            #
+                #
                 self.emit.createcode("STZ", "temp_time_flag", "measurement should start", name="startmeasurement")
                 self.emit.createcode("RTS")
 
-            self.emit.createcode("STA", "PIA_INTERFACE_A", "Store Accu in Port A Dataregister", name="setPORTA")
-            self.emit.createcode("LDA", "PIA_CONTROL_A")
-            self.emit.createcode("AND", "#%11110111", "Set CA2 to low")
-            self.emit.createcode("STA", "PIA_CONTROL_A")
-            self.emit.createcode("ORA", "#%00111000", "Set CA2 to high")
-            self.emit.createcode("STA", "PIA_CONTROL_A")
-            self.emit.createcode("RTS")
+                self.emit.createcode("STA", "PIA_INTERFACE_A", "Store Accu in Port A Dataregister", name="setPORTA")
+                self.emit.createcode("LDA", "PIA_CONTROL_A")
+                self.emit.createcode("AND", "#%11110111", "Set CA2 to low")
+                self.emit.createcode("STA", "PIA_CONTROL_A")
+                self.emit.createcode("ORA", "#%00111000", "Set CA2 to high")
+                self.emit.createcode("STA", "PIA_CONTROL_A")
+                self.emit.createcode("RTS")
 
-            self.emit.createcode("PHA", "", "save accu", name="lowCB2")
-            self.emit.createcode("LDA", "PIA_CONTROL_B")
-            self.emit.createcode("AND", "#%11110111", "Set CB2 to low")
-            self.emit.createcode("STA", "PIA_CONTROL_B")
-            self.emit.createcode("PLA")
-            self.emit.createcode("RTS")
-            #
-            self.emit.createcode("PHA", "", "save accu", name="highCB2")
-            self.emit.createcode("LDA", "PIA_CONTROL_B")
-            self.emit.createcode("ORA", "#%00111000", "Set CB2 to high")
-            self.emit.createcode("STA", "PIA_CONTROL_B")
-            self.emit.createcode("PLA")
-            self.emit.createcode("RTS")
-            #
-            self.emit.createcode("PHX", "", "save x", name="setpwm")
-            self.emit.createcode("TAX")
-            self.emit.createcode("LDA", "pwmconsttab,X")
-            self.emit.createcode("STA", "PIA_INTERFACE_B")
-            self.emit.createcode("PLX")
-            self.emit.createcode("JSR", "lowCB2")
-            self.emit.createcode("JSR", "highCB2")
-            self.emit.createcode("RTS")
-            #
-            #
-            self.emit.createcode("BYTE", "$ff,$7f,$3f,$1f,$0f,$07,$03,$01,$00", name="pwmconsttab")
+                self.emit.createcode("PHA", "", "save accu", name="lowCB2")
+                self.emit.createcode("LDA", "PIA_CONTROL_B")
+                self.emit.createcode("AND", "#%11110111", "Set CB2 to low")
+                self.emit.createcode("STA", "PIA_CONTROL_B")
+                self.emit.createcode("PLA")
+                self.emit.createcode("RTS")
+                #
+                self.emit.createcode("PHA", "", "save accu", name="highCB2")
+                self.emit.createcode("LDA", "PIA_CONTROL_B")
+                self.emit.createcode("ORA", "#%00111000", "Set CB2 to high")
+                self.emit.createcode("STA", "PIA_CONTROL_B")
+                self.emit.createcode("PLA")
+                self.emit.createcode("RTS")
+                #
+                self.emit.createcode("PHX", "", "save x", name="setpwm")
+                self.emit.createcode("TAX")
+                self.emit.createcode("LDA", "pwmconsttab,X")
+                self.emit.createcode("STA", "PIA_INTERFACE_B")
+                self.emit.createcode("PLX")
+                self.emit.createcode("JSR", "lowCB2")
+                self.emit.createcode("JSR", "highCB2")
+                self.emit.createcode("RTS")
+                #
+                #
+                self.emit.createcode("BYTE", "$ff,$7f,$3f,$1f,$0f,$07,$03,$01,$00", name="pwmconsttab")
 
     def emit_transmittimer(self):
         # configure timer 2 to one shot timer mode for work around the acia6551 transmit bug
